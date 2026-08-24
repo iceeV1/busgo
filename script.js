@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 /* ================= DATA ================= */
 const PROVINCES = [
@@ -196,8 +196,8 @@ function renderBuses() {
   $("resultsCount").textContent = `พบ ${list.length} เที่ยวรถ · ${fmtDate(state.date)}`;
   $("resultsTitle").textContent =
     state.from || state.to
-      ? `🚏 ${state.from || "ทุกต้นทาง"} → ${state.to || "ทุกปลายทาง"}`
-      : "🚏 ทุกเส้นทาง";
+      ? `${state.from || "ทุกต้นทาง"} → ${state.to || "ทุกปลายทาง"}`
+      : "ทุกเส้นทาง";
 
   wrap.innerHTML = list.map((bus, i) => {
     const info = TYPE_INFO[bus.type];
@@ -386,7 +386,7 @@ $("confirmBtn").addEventListener("click", async () => {
   $("tkDateTime").textContent = `${fmtDate(booking.date)} · ${bus.depart}`;
   $("tkSeats").textContent = booking.seats.join(", ");
   showStep("stepDone");
-  showToast("🎉 จองคิวสำเร็จ! ขอบคุณที่ใช้บริการ BusGo");
+  showToast("จองคิวสำเร็จ! ขอบคุณที่ใช้บริการ BusGo");
 });
 
 $("closeModal").addEventListener("click", () => { closeModal(); renderBuses(); });
@@ -421,7 +421,7 @@ function renderTickets() {
     const active = bk.status === "active";
     return `
     <article class="my-ticket ${active ? "" : "cancelled"}" style="animation-delay:${i * 0.06}s">
-      <div class="tk-route">🎫 ${esc(route)}</div>
+      <div class="tk-route">${esc(route)}</div>
       <div class="tk-info">
         รหัสตั๋ว: <b>${esc(bk.code)}</b><br />
         ผู้โดยสาร: <b>${esc(bk.name)}</b> · โทร ${esc(bk.phone)}<br />
@@ -431,7 +431,7 @@ function renderTickets() {
       </div>
       <div class="my-ticket-foot">
         <span class="status-pill ${active ? "status-active" : "status-cancelled"}">
-          ${active ? "● ยืนยันแล้ว" : "✕ ยกเลิกแล้ว"}
+          ${active ? "ยืนยันแล้ว" : "ยกเลิกแล้ว"}
         </span>
         ${active ? `<button class="cancel-link" data-cancel="${esc(bk.code)}">ยกเลิกการจอง</button>` : "<span></span>"}
       </div>

@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 /* ============================================================
    BusGo Backend — Node.js ล้วน ไม่ต้อง npm install
    ฐานข้อมูล: data/db.json | API: /api/buses, /api/bookings
@@ -250,7 +250,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log("=========================================");
-  console.log("  🚌 BusGo Server กำลังทำงาน");
+  console.log("  BusGo Server กำลังทำงาน");
   console.log(`  หน้าเว็บหลัก : http://localhost:${PORT}`);
   console.log(`  หลังบ้าน     : http://localhost:${PORT}/admin`);
   console.log(`  Admin Key    : ${ADMIN_KEY}`);

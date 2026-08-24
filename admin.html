@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
@@ -13,7 +13,7 @@
   <!-- LOGIN -->
   <div class="login-overlay" id="loginOverlay">
     <form class="login-card glass-strong" id="loginForm">
-      <h2>🔐 BusGo Admin</h2>
+      <h2>BusGo Admin</h2>
       <p class="muted small">เข้าสู่ระบบผู้ดูแลหลังบ้าน</p>
       <input type="password" id="adminPass" placeholder="รหัสผ่านผู้ดูแล" required autocomplete="current-password" />
       <button type="submit" class="btn btn-primary">เข้าสู่ระบบ</button>
@@ -24,7 +24,7 @@
   <!-- HEADER -->
   <header class="header">
     <div class="container header-inner">
-      <div class="logo">🚌 Bus<span class="logo-accent">Go</span><span class="admin-tag">ADMIN</span></div>
+      <div class="logo">Bus<span class="logo-accent">Go</span><span class="admin-tag">ADMIN</span></div>
       <div class="nav">
         <a href="/" class="nav-link" style="text-decoration:none">← หน้าเว็บหลัก</a>
         <button class="nav-link" id="logoutBtn">ออกจากระบบ</button>
@@ -34,16 +34,16 @@
 
   <main class="container admin-main">
     <nav class="admin-tabs">
-      <button class="nav-link active" data-tab="dash">📊 ภาพรวม</button>
-      <button class="nav-link" data-tab="bookings">🎟️ การจอง</button>
-      <button class="nav-link" data-tab="buses">🚌 จัดการรอบรถ</button>
+      <button class="nav-link active" data-tab="dash">ภาพรวม</button>
+      <button class="nav-link" data-tab="bookings">การจอง</button>
+      <button class="nav-link" data-tab="buses">จัดการรอบรถ</button>
     </nav>
 
     <!-- DASHBOARD -->
     <section id="tab-dash">
       <div class="stat-cards" id="statCards"></div>
       <div class="panel glass">
-        <h3>🔥 เส้นทางยอดนิยม (ตามตั๋วที่ยืนยันแล้ว)</h3>
+        <h3>เส้นทางยอดนิยม (ตามตั๋วที่ยืนยันแล้ว)</h3>
         <div id="routeBars"></div>
       </div>
     </section>
@@ -51,15 +51,15 @@
     <!-- BOOKINGS -->
     <section id="tab-bookings" class="hidden">
       <div class="filter-row glass">
-        <input type="search" id="bkSearch" placeholder="🔍 ค้นหารหัส / ชื่อ / เบอร์โทร..." />
+        <input type="search" id="bkSearch" placeholder="ค้นหารหัส / ชื่อ / เบอร์โทร..." />
         <input type="date" id="bkDate" />
         <select id="bkStatus">
           <option value="">ทุกสถานะ</option>
           <option value="active">ยืนยันแล้ว</option>
           <option value="cancelled">ยกเลิกแล้ว</option>
         </select>
-        <button class="btn btn-primary btn-sm" id="bkRefresh" style="padding:11px 18px">↻ รีเฟรช</button>
-        <button class="btn btn-ghost btn-sm" id="csvBtn" style="padding:11px 18px">⬇ Export CSV</button>
+        <button class="btn btn-primary btn-sm" id="bkRefresh" style="padding:11px 18px">รีเฟรช</button>
+        <button class="btn btn-ghost btn-sm" id="csvBtn" style="padding:11px 18px">Export CSV</button>
       </div>
       <div class="table-wrap glass"><table class="data-table" id="bkTable"></table></div>
     </section>
@@ -69,7 +69,7 @@
       <div class="filter-row glass">
         <span class="muted small">จัดการเที่ยวรถทั้งหมด — เพิ่ม แก้ไข หรือลบรอบรถได้ทันที</span>
         <span style="flex:1"></span>
-        <button class="btn btn-primary btn-sm" id="addBusBtn" style="padding:11px 18px">＋ เพิ่มเที่ยวรถ</button>
+        <button class="btn btn-primary btn-sm" id="addBusBtn" style="padding:11px 18px">+ เพิ่มเที่ยวรถ</button>
       </div>
       <div class="table-wrap glass"><table class="data-table" id="busTable"></table></div>
     </section>
@@ -79,7 +79,7 @@
       <div class="modal glass-strong">
         <div class="modal-head">
           <h3 id="busFormTitle">เพิ่มเที่ยวรถ</h3>
-          <button class="close-btn" id="busClose">✕</button>
+          <button class="close-btn" id="busClose">&#215;</button>
         </div>
         <form id="busForm" class="info-form form-grid" onsubmit="return false">
           <label>ต้นทาง<input id="fFrom" required placeholder="เช่น กรุงเทพฯ" /></label>
@@ -98,7 +98,7 @@
         </form>
         <div class="modal-actions">
           <span></span>
-          <button class="btn btn-primary" id="busSave">💾 บันทึก</button>
+          <button class="btn btn-primary" id="busSave">บันทึก</button>
         </div>
       </div>
     </div>

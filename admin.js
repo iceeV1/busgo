@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 /* ================= HELPERS ================= */
 const $ = (id) => document.getElementById(id);
@@ -50,7 +50,7 @@ $("loginForm").addEventListener("submit", async (e) => {
     if (!res.ok) throw new Error("รหัสผ่านไม่ถูกต้อง");
     sessionStorage.setItem("bg_admin_key", KEY);
     showLogin(false);
-    toast("✓ เข้าสู่ระบบสำเร็จ");
+    toast("เข้าสู่ระบบสำเร็จ");
     refresh();
   } catch (err) {
     toast(err.message || "เข้าสู่ระบบไม่สำเร็จ", true);
@@ -79,11 +79,11 @@ function renderDash() {
   const today = new Date().toISOString().slice(0, 10);
 
   $("statCards").innerHTML = `
-    <div class="stat-card hl"><div class="sc-icon">🎟️</div><div class="sc-value">${bookings.length}</div><div class="sc-label">การจองทั้งหมด</div></div>
-    <div class="stat-card green"><div class="sc-icon">✅</div><div class="sc-value">${active.length}</div><div class="sc-label">ตั๋วที่ยืนยันแล้ว</div></div>
-    <div class="stat-card gold"><div class="sc-icon">💰</div><div class="sc-value">฿${revenue.toLocaleString()}</div><div class="sc-label">รายได้รวม</div></div>
-    <div class="stat-card"><div class="sc-icon">🚌</div><div class="sc-value">${buses.length}</div><div class="sc-label">เที่ยวรถในระบบ</div></div>
-    <div class="stat-card"><div class="sc-icon">📅</div><div class="sc-value">${bookings.filter((b) => b.date === today && b.status === "active").length}</div><div class="sc-label">ตั๋ววันนี้</div></div>`;
+    <div class="stat-card hl"><div class="sc-icon"></div><div class="sc-value">${bookings.length}</div><div class="sc-label">การจองทั้งหมด</div></div>
+    <div class="stat-card green"><div class="sc-icon"></div><div class="sc-value">${active.length}</div><div class="sc-label">ตั๋วที่ยืนยันแล้ว</div></div>
+    <div class="stat-card gold"><div class="sc-icon"></div><div class="sc-value">฿${revenue.toLocaleString()}</div><div class="sc-label">รายได้รวม</div></div>
+    <div class="stat-card"><div class="sc-icon"></div><div class="sc-value">${buses.length}</div><div class="sc-label">เที่ยวรถในระบบ</div></div>
+    <div class="stat-card"><div class="sc-icon"></div><div class="sc-value">${bookings.filter((b) => b.date === today && b.status === "active").length}</div><div class="sc-label">ตั๋ววันนี้</div></div>`;
 
   // เส้นทางยอดนิยม
   const byRoute = {};
@@ -135,7 +135,7 @@ function renderBookings() {
         <td>${esc(bk.name)}<br /><span class="muted small">${esc(bk.phone)}</span></td>
         <td>${bk.seats.join(", ")}</td>
         <td><b>฿${bk.total.toLocaleString()}</b></td>
-        <td><span class="status-pill ${active ? "status-active" : "status-cancelled"}">${active ? "● ยืนยันแล้ว" : "✕ ยกเลิก"}</span></td>
+        <td><span class="status-pill ${active ? "status-active" : "status-cancelled"}">${active ? "ยืนยันแล้ว" : "ยกเลิก"}</span></td>
         <td><div class="actions">
           ${active ? `<button class="btn-sm btn-warn" data-cancel="${esc(bk.code)}">ยกเลิก</button>` : ""}
           <button class="btn-sm btn-danger" data-del="${esc(bk.code)}">ลบ</button>
@@ -194,7 +194,7 @@ function renderBuses() {
         <td><span class="badge ${info.cls || ""}">${info.label || bus.type}</span> <span class="muted small">${seats} ที่</span></td>
         <td><b>฿${Number(bus.price).toLocaleString()}</b></td>
         <td><div class="actions">
-          <button class="btn-sm btn-ghosty" data-edit="${esc(bus.id)}">✎ แก้ไข</button>
+          <button class="btn-sm btn-ghosty" data-edit="${esc(bus.id)}">แก้ไข</button>
           <button class="btn-sm btn-danger" data-dbus="${esc(bus.id)}">ลบ</button>
         </div></td>
       </tr>`;
@@ -242,7 +242,7 @@ $("busSave").addEventListener("click", async () => {
   try {
     if (editingBusId) await api(`/api/buses/${encodeURIComponent(editingBusId)}`, { method: "PUT", body });
     else await api("/api/buses", { method: "POST", body });
-    toast(editingBusId ? "บันทึกการแก้ไขแล้ว ✓" : "เพิ่มเที่ยวรถใหม่แล้ว ✓");
+    toast(editingBusId ? "บันทึกการแก้ไขแล้ว" : "เพิ่มเที่ยวรถใหม่แล้ว");
     $("busModal").classList.add("hidden");
     refresh();
   } catch (e) {
