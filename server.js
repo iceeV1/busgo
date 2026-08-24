@@ -18,6 +18,8 @@ const TYPE_INFO = {
   air: { seats: 44 },
   eco: { seats: 48 },
 };
+const MODES = ["bus", "train", "ferry"];
+const PAY_METHODS = ["promptpay", "card", "wallet"];
 
 const DEFAULT_BUSES = [
   { id: "B01", from: "กรุงเทพฯ", to: "เชียงใหม่", depart: "08:00", arrive: "17:30", duration: "9 ชม. 30 นาที", type: "vip", price: 850 },
@@ -43,11 +45,41 @@ function saveDB(db) {
   fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
   fs.renameSync(tmp, DB_PATH); // atomic write ป้องกันไฟล์เสีย
 }
+const SAMPLE_EXTRA = [
+  { id: "TR01", from: "กรุงเทพฯ", to: "เชียงใหม่", depart: "18:10", arrive: "07:15", duration: "13 ชม. 05 นาที", type: "air", mode: "train", price: 881, seats: 40 },
+  { id: "TR02", from: "กรุงเทพฯ", to: "หาดใหญ่", depart: "17:30", arrive: "09:20", duration: "15 ชม. 50 นาที", type: "eco", mode: "train", price: 474, seats: 48 },
+  { id: "FR01", from: "กระบี่", to: "เกาะพีพี", depart: "09:00", arrive: "10:30", duration: "1 ชม. 30 นาที", type: "air", mode: "ferry", price: 450, seats: 44 },
+  { id: "FR02", from: "ดอนสัก", to: "เกาะสมุย", depart: "08:00", arrive: "11:00", duration: "3 ชม.", type: "eco", mode: "ferry", price: 200, seats: 48 },
+];
+
+const DEFAULT_PROMOS = [{ code: "WELCOME10", percent: 10, active: true }];
+
+function normalize(db) {
+  let changed = false;
+  (db.buses || []).forEach((b) => { if (!b.mode) { b.mode = "bus"; changed = true; } });
+  if (!Array.isArray(db.promos)) { db.promos = JSON.parse(JSON.stringify(DEFAULT_PROMOS)); changed = true; }
+  if (!db.seededExtra) {
+    const have = new Set((db.buses || []).map((b) => b.id));
+    SAMPLE_EXTRA.forEach((s) => { if (!have.has(s.id)) db.buses.push({ ...s }); });
+    db.seededExtra = true;
+    changed = true;
+  }
+  return changed;
+}
+
 function loadDB() {
   try {
-    return JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+    const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+    if (normalize(db)) saveDB(db);
+    return db;
   } catch {
-    const db = { buses: DEFAULT_BUSES, bookings: [], seq: 1 };
+    const db = {
+      buses: DEFAULT_BUSES.map((b) => ({ ...b, mode: "bus" })).concat(SAMPLE_EXTRA.map((s) => ({ ...s }))),
+      bookings: [],
+      promos: JSON.parse(JSON.stringify(DEFAULT_PROMOS)),
+      seededExtra: true,
+      seq: 1,
+    };
     saveDB(db);
     return db;
   }
@@ -96,6 +128,7 @@ function validateBus(b) {
   if (!/^\d{2}:\d{2}$/.test(b.arrive || "")) return "เวลาถึงไม่ถูกต้อง";
   if (!String(b.duration || "").trim()) return "กรุณาระบุระยะเวลาเดินทาง";
   if (!TYPE_INFO[b.type]) return "ประเภทรถต้องเป็น vip / air / eco";
+  if (b.mode && !MODES.includes(b.mode)) return "ชนิดการเดินทางต้องเป็น bus / train / ferry";
   const price = Number(b.price);
   if (!Number.isFinite(price) || price < 0 || price > 100000) return "ราคาไม่ถูกต้อง";
   return null;
@@ -121,6 +154,7 @@ async function handleApi(req, res, p) {
       from: String(b.from).trim(), to: String(b.to).trim(),
       depart: b.depart, arrive: b.arrive,
       duration: String(b.duration).trim(), type: b.type,
+      mode: MODES.includes(b.mode) ? b.mode : "bus",
       price: Number(b.price), seats: TYPE_INFO[b.type].seats,
     };
     db.buses.push(bus);
@@ -190,6 +224,18 @@ async function handleApi(req, res, p) {
     const conflict = seats.find((s) => taken.has(s));
     if (conflict) return send(res, 409, { error: `ที่นั่ง ${conflict} ถูกจองไปแล้ว กรุณาเลือกที่นั่งใหม่` });
 
+    // โปรโมชั่น (ส่วนลด)
+    let promo = null;
+    if (body.promoCode) {
+      promo = (db.promos || []).find((p) => p.active && p.code === String(body.promoCode).trim().toUpperCase());
+      if (!promo) return send(res, 400, { error: "ไม่พบโค้ดโปรโมชั่นนี้ หรือโค้ดหมดอายุ" });
+    }
+    // ช่องทางชำระเงิน
+    const payMethod = PAY_METHODS.includes(body.payMethod) ? body.payMethod : null;
+
+    const gross = seats.length * bus.price;
+    const discount = promo ? Math.round((gross * promo.percent) / 100) : 0;
+
     const booking = {
       code: "BG-" + Date.now().toString(36).toUpperCase().slice(-4) + "-" + String(db.seq++ % 1000).padStart(3, "0"),
       busId: bus.id,
@@ -197,7 +243,10 @@ async function handleApi(req, res, p) {
       seats,
       name, phone,
       note: String(body.note || "").slice(0, 200),
-      total: seats.length * bus.price,
+      promoCode: promo ? promo.code : null,
+      discount,
+      total: gross - discount,
+      payMethod,
       status: "active",
       createdAt: new Date().toISOString(),
     };
@@ -222,6 +271,47 @@ async function handleApi(req, res, p) {
     if (!mb[2] && m === "DELETE") {
       if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
       db.bookings = db.bookings.filter((x) => x.code !== code);
+      saveDB(db);
+      return send(res, 200, { deleted: code });
+    }
+  }
+
+  /* ---------- PROMOTIONS ---------- */
+  if (p === "/api/promos" && m === "GET") {
+    const all = db.promos || [];
+    if (isAdmin(req)) return send(res, 200, all);
+    return send(res, 200, all.filter((x) => x.active).map(({ code, percent }) => ({ code, percent })));
+  }
+
+  if (p === "/api/promos" && m === "POST") {
+    if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
+    const body = await readBody(req);
+    const code = String(body.code || "").trim().toUpperCase();
+    const percent = Math.round(Number(body.percent));
+    if (!/^[A-Z0-9]{3,20}$/.test(code)) return send(res, 400, { error: "โค้ดต้องเป็น A-Z หรือตัวเลข 3-20 ตัว" });
+    if (!Number.isFinite(percent) || percent < 1 || percent > 90) return send(res, 400, { error: "ส่วนลดต้องอยู่ระหว่าง 1-90 %" });
+    if ((db.promos || []).some((x) => x.code === code)) return send(res, 409, { error: "มีโค้ดนี้อยู่แล้ว" });
+    const promo = { code, percent, active: true };
+    db.promos.push(promo);
+    saveDB(db);
+    return send(res, 201, promo);
+  }
+
+  let mp;
+  if ((mp = p.match(/^\/api\/promos\/([^/]+)(\/toggle)?$/))) {
+    const code = decodeURIComponent(mp[1]);
+    const pr = (db.promos || []).find((x) => x.code === code);
+    if (!pr) return send(res, 404, { error: "ไม่พบโค้ดนี้" });
+
+    if (mp[2] && m === "PATCH") {
+      if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
+      pr.active = !pr.active;
+      saveDB(db);
+      return send(res, 200, pr);
+    }
+    if (!mp[2] && m === "DELETE") {
+      if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
+      db.promos = db.promos.filter((x) => x.code !== code);
       saveDB(db);
       return send(res, 200, { deleted: code });
     }

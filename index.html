@@ -25,34 +25,62 @@
       <h1 class="hero-title">เดินทางทั่วไทย <span class="gradient-text">ง่าย ไว สบายใจ</span></h1>
       <p class="hero-sub">ค้นหารอบรถบัส จองคิว เลือกที่นั่ง และรับ e-Ticket ได้ในไม่กี่คลิก</p>
 
+      <div class="mode-tabs" id="modeTabs">
+        <button type="button" class="mode-tab active" data-mode="bus">รถบัส</button>
+        <button type="button" class="mode-tab" data-mode="train">รถไฟ</button>
+        <button type="button" class="mode-tab" data-mode="ferry">เรือเฟอร์รี่</button>
+      </div>
+
       <form id="searchForm" class="search-card glass">
-        <div class="search-field">
-          <label>ต้นทาง</label>
-          <select id="fromSelect"></select>
+        <div class="trip-pills">
+          <label><input type="radio" name="tripType" value="oneway" checked /><span>เที่ยวเดียว</span></label>
+          <label><input type="radio" name="tripType" value="roundtrip" /><span>ไป–กลับ</span></label>
         </div>
-        <button type="button" id="swapBtn" class="swap-btn" title="สลับเส้นทาง">⇄</button>
-        <div class="search-field">
-          <label>ปลายทาง</label>
-          <select id="toSelect"></select>
+        <div class="search-grid">
+          <div class="search-field">
+            <label>ต้นทาง</label>
+            <select id="fromSelect"></select>
+          </div>
+          <button type="button" id="swapBtn" class="swap-btn" title="สลับเส้นทาง">⇄</button>
+          <div class="search-field">
+            <label>ปลายทาง</label>
+            <select id="toSelect"></select>
+          </div>
+          <div class="search-field">
+            <label>วันที่ออกเดินทาง</label>
+            <input type="date" id="dateInput" />
+          </div>
+          <div class="search-field hidden" id="returnField">
+            <label>วันที่เดินทางกลับ</label>
+            <input type="date" id="returnDateInput" />
+          </div>
+          <div class="search-field">
+            <label>ผู้โดยสาร (Pax)</label>
+            <select id="paxSelect"></select>
+          </div>
+          <div class="search-field">
+            <label>ประเภทที่นั่ง</label>
+            <select id="typeSelect">
+              <option value="">ทุกประเภท</option>
+              <option value="vip">VIP (32 ที่นั่ง)</option>
+              <option value="air">ปรับอากาศ (44 ที่นั่ง)</option>
+              <option value="eco">ธรรมดา (48 ที่นั่ง)</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary search-btn">ค้นหารอบรถ</button>
         </div>
-        <div class="search-field">
-          <label>วันที่เดินทาง</label>
-          <input type="date" id="dateInput" />
-        </div>
-        <div class="search-field">
-          <label>ประเภทรถ</label>
-          <select id="typeSelect">
-            <option value="">ทุกประเภท</option>
-            <option value="vip">VIP (32 ที่นั่ง)</option>
-            <option value="air">ปรับอากาศ (44 ที่นั่ง)</option>
-            <option value="eco">ธรรมดา (48 ที่นั่ง)</option>
-          </select>
-        </div>
-        <button type="submit" class="btn btn-primary search-btn">ค้นหารอบรถ</button>
       </form>
 
+      <div id="recentRow" class="recent-row hidden"></div>
+
       <div class="stats-row" id="statsRow"></div>
+      <div id="promoStrip" class="promo-strip hidden"></div>
     </div>
+  </section>
+
+  <section class="container popular-section">
+    <h2 class="section-title">เส้นทางยอดนิยม</h2>
+    <div id="popularRoutes" class="route-chips"></div>
   </section>
 
   <main class="container page" id="tab-schedules">
@@ -70,6 +98,7 @@
 
   <main class="container page hidden" id="tab-tickets">
     <div class="results-header"><h2>ตั๋วของฉัน</h2></div>
+    <div id="pointsBar" class="points-bar hidden"></div>
     <div id="ticketList" class="ticket-grid"></div>
     <div id="ticketEmpty" class="empty-state hidden">
       <div class="empty-icon"></div>
@@ -90,7 +119,7 @@
 
       <!-- STEP 1 : SEATS -->
       <div id="stepSeats">
-        <div class="step-label">ขั้นตอน 1/3 · เลือกที่นั่ง</div>
+        <div class="step-label">ขั้นตอน 1/4 · เลือกที่นั่ง</div>
         <div class="legend">
           <span><i class="dot dot-free"></i>ว่าง</span>
           <span><i class="dot dot-taken"></i>ถูกจอง</span>
@@ -112,7 +141,7 @@
 
       <!-- STEP 2 : INFO -->
       <div id="stepInfo" class="hidden">
-        <div class="step-label">ขั้นตอน 2/3 · ข้อมูลผู้โดยสาร</div>
+        <div class="step-label">ขั้นตอน 2/4 · ข้อมูลผู้โดยสาร</div>
         <form id="infoForm" class="info-form">
           <label>ชื่อ–นามสกุล *
             <input type="text" id="custName" placeholder="เช่น สมชาย ใจดี" required />
@@ -123,20 +152,46 @@
           <label>หมายเหตุ (ถ้ามี)
             <input type="text" id="custNote" placeholder="เช่น ขึ้นที่ป้ายหน้าห้าง" />
           </label>
+          <label>โค้ดโปรโมชั่น
+            <span class="promo-input-row">
+              <input type="text" id="promoCode" placeholder="เช่น WELCOME10" />
+              <button type="button" class="btn btn-ghost btn-sm" id="applyPromoBtn">ใช้โค้ด</button>
+            </span>
+          </label>
         </form>
         <div class="booking-summary">
-          <div><span id="sumRoute"></span><br /><small class="muted" id="sumDetail"></small></div>
+          <div><span id="sumRoute"></span><br /><small class="muted" id="sumDetail"></small>
+            <div id="discountLine" class="discount-line hidden">ส่วนลด (<span id="discountPct"></span>): −฿<span id="discountAmt">0</span></div>
+          </div>
           <div class="total">฿<span id="sumTotal">0</span></div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="backToSeats">← กลับ</button>
-          <button type="button" class="btn btn-primary" id="confirmBtn">ยืนยันการจอง</button>
+          <button type="button" class="btn btn-primary" id="confirmBtn">ถัดไป: ชำระเงิน →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 : PAYMENT -->
+      <div id="stepPay" class="hidden">
+        <div class="step-label">ขั้นตอน 3/4 · ชำระเงิน</div>
+        <div class="pay-methods">
+          <label class="pay-card"><input type="radio" name="payMethod" value="promptpay" checked /><span class="pm-title">QR PromptPay</span><span class="pm-sub">สแกนจ่ายได้ทันที</span></label>
+          <label class="pay-card"><input type="radio" name="payMethod" value="card" /><span class="pm-title">บัตรเครดิต / เดบิต</span><span class="pm-sub">Visa, Mastercard</span></label>
+          <label class="pay-card"><input type="radio" name="payMethod" value="wallet" /><span class="pm-title">e-Wallet</span><span class="pm-sub">TrueMoney, ShopeePay</span></label>
+        </div>
+        <div id="qrBox" class="qr-box">
+          <div class="qr-fake"></div>
+          <p class="muted small">สแกน QR ด้วยแอปธนาคารเพื่อชำระ <b>฿<span id="payAmount">0</span></b> (ระบบสาธิต)</p>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="backToInfo">← กลับ</button>
+          <button type="button" class="btn btn-primary" id="payNowBtn">ชำระเงินและยืนยันการจอง</button>
         </div>
       </div>
 
       <!-- STEP 3 : TICKET -->
       <div id="stepDone" class="hidden">
-        <div class="step-label success">จองสำเร็จ! e-Ticket ของคุณ</div>
+        <div class="step-label success">ชำระเงินสำเร็จ! e-Ticket ของคุณ</div>
         <div class="eticket">
           <div class="eticket-head">
             <span class="logo small-logo">BusGo</span>
@@ -147,6 +202,7 @@
             <div><small>เส้นทาง</small><b id="tkRoute"></b></div>
             <div><small>วันที่ / เวลา</small><b id="tkDateTime"></b></div>
             <div><small>ที่นั่ง</small><b id="tkSeats"></b></div>
+            <div><small>ชำระผ่าน</small><b id="tkPay"></b></div>
           </div>
           <div class="eticket-tear"></div>
           <div class="eticket-foot">

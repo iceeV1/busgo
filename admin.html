@@ -37,6 +37,7 @@
       <button class="nav-link active" data-tab="dash">ภาพรวม</button>
       <button class="nav-link" data-tab="bookings">การจอง</button>
       <button class="nav-link" data-tab="buses">จัดการรอบรถ</button>
+        <button class="nav-link" data-tab="promos">โปรโมชั่น</button>
     </nav>
 
     <!-- DASHBOARD -->
@@ -74,6 +75,18 @@
       <div class="table-wrap glass"><table class="data-table" id="busTable"></table></div>
     </section>
 
+    <!-- PROMOTIONS -->
+    <section id="tab-promos" class="hidden">
+      <div class="filter-row glass">
+        <input type="text" id="prCode" placeholder="รหัสโค้ด เช่น SALE20" maxlength="20" />
+        <input type="number" id="prPercent" placeholder="ส่วนลด %" min="1" max="90" style="max-width:140px" />
+        <button class="btn btn-primary btn-sm" id="prAdd" style="padding:11px 18px">+ เพิ่มโค้ดส่วนลด</button>
+        <span style="flex:1"></span>
+        <span class="muted small">ผู้โดยสารใส่โค้ดตอนกรอกข้อมูลก่อนชำระเงิน</span>
+      </div>
+      <div class="table-wrap glass"><table class="data-table" id="promoTable"></table></div>
+    </section>
+
     <!-- BUS FORM MODAL -->
     <div class="modal-overlay hidden" id="busModal">
       <div class="modal glass-strong">
@@ -87,6 +100,13 @@
           <label>เวลาออก<input type="time" id="fDepart" required /></label>
           <label>เวลาถึง<input type="time" id="fArrive" required /></label>
           <label>ระยะเวลา<input id="fDuration" required placeholder="เช่น 9 ชม. 30 นาที" /></label>
+          <label>ชนิดการเดินทาง
+            <select id="fMode">
+              <option value="bus">รถบัส</option>
+              <option value="train">รถไฟ</option>
+              <option value="ferry">เรือเฟอร์รี่</option>
+            </select>
+          </label>
           <label>ประเภทรถ
             <select id="fType">
               <option value="vip">VIP (32 ที่นั่ง)</option>

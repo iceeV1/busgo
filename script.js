@@ -36,8 +36,15 @@ let bookings = [];
 let serverOnline = false;
 let state = {
   date: new Date().toISOString().slice(0, 10),
+  returnDate: "",
+  tripType: "oneway",
+  pax: 1,
+  mode: "bus",
   from: "", to: "", type: "",
   currentBusId: null,
+  currentDate: null,
+  appliedPromo: null,
+  custName: "", custPhone: "", custNote: "",
   selectedSeats: new Set(),
 };
 
@@ -150,26 +157,64 @@ document.querySelectorAll(".nav-link").forEach((btn) =>
   btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
 
 /* ================= SEARCH / FILTERS ================= */
+const LS_RECENT = "busgo_recent_searches";
 function initFilters() {
   const fromSel = $("fromSelect"), toSel = $("toSelect");
   PROVINCES.forEach((p) => {
     fromSel.insertAdjacentHTML("beforeend", `<option value="${esc(p)}">${esc(p)}</option>`);
     toSel.insertAdjacentHTML("beforeend", `<option value="${esc(p)}">${esc(p)}</option>`);
   });
+  const paxSel = $("paxSelect");
+  [1, 2, 3, 4, 5, 6].forEach((n) =>
+    paxSel.insertAdjacentHTML("beforeend", `<option value="${n}">${n} คน</option>`));
+
   $("dateInput").value = state.date;
   $("dateInput").min = new Date().toISOString().slice(0, 10);
+  $("returnDateInput").min = state.date;
+
+  // แท็บชนิดการเดินทาง
+  document.querySelectorAll("#modeTabs .mode-tab").forEach((tb) =>
+    tb.addEventListener("click", () => {
+      document.querySelectorAll("#modeTabs .mode-tab").forEach((x) =>
+        x.classList.toggle("active", x === tb));
+      state.mode = tb.dataset.mode;
+      renderBuses();
+      renderPopular();
+    }));
+
+  // เที่ยวเดียว / ไป-กลับ
+  document.querySelectorAll('input[name="tripType"]').forEach((r) =>
+    r.addEventListener("change", () => {
+      state.tripType = document.querySelector('input[name="tripType"]:checked').value;
+      $("returnField").classList.toggle("hidden", state.tripType !== "roundtrip");
+      if (state.tripType === "roundtrip") {
+        const rd = $("returnDateInput");
+        rd.min = $("dateInput").value || state.date;
+        if (!rd.value) rd.value = rd.min;
+        state.returnDate = rd.value;
+      }
+      renderBuses();
+    }));
+  $("returnDateInput").addEventListener("change", () => { state.returnDate = $("returnDateInput").value; });
 
   $("searchForm").addEventListener("submit", (e) => {
     e.preventDefault();
     state.from = fromSel.value;
     state.to = toSel.value;
     state.type = $("typeSelect").value;
+    state.pax = parseInt($("paxSelect").value, 10) || 1;
     const d = $("dateInput").value;
     if (!d) { showToast("กรุณาเลือกวันที่เดินทาง", true); return; }
     if (state.from && state.to && state.from === state.to) {
       showToast("ต้นทางและปลายทางต้องไม่ซ้ำกัน", true); return;
     }
     state.date = d;
+    if (state.tripType === "roundtrip") {
+      state.returnDate = $("returnDateInput").value;
+      if (!state.returnDate) { showToast("กรุณาเลือกวันที่เดินทางกลับ", true); return; }
+      if (state.returnDate < state.date) { showToast("วันที่กลับต้องไม่ก่อนวันไป", true); return; }
+    }
+    saveRecentSearch();
     renderBuses();
   });
 
@@ -178,32 +223,112 @@ function initFilters() {
     fromSel.value = toSel.value;
     toSel.value = tmp;
   });
+
+  renderRecent();
+}
+
+/* ---------- Recent Search ---------- */
+function saveRecentSearch() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(LS_RECENT) || "[]");
+    arr.unshift({
+      from: state.from, to: state.to, date: state.date,
+      ret: state.returnDate, type: state.type, mode: state.mode,
+      pax: state.pax, tripType: state.tripType,
+    });
+    localStorage.setItem(LS_RECENT, JSON.stringify(arr.slice(0, 3)));
+  } catch {}
+  renderRecent();
+}
+function renderRecent() {
+  let arr = [];
+  try { arr = JSON.parse(localStorage.getItem(LS_RECENT) || "[]"); } catch {}
+  const row = $("recentRow");
+  if (!arr.length) { row.classList.add("hidden"); return; }
+  row.classList.remove("hidden");
+  row.innerHTML =
+    `<span class="muted small">ค้นหาล่าสุด:</span> ` +
+    arr.map((r, i) =>
+      `<button class="chip" data-recent="${i}">${esc(r.from || "ทุกต้นทาง")} → ${esc(r.to || "ทุกปลายทาง")}</button>`
+    ).join("");
+  row.querySelectorAll("[data-recent]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const r = arr[+btn.dataset.recent];
+      $("fromSelect").value = r.from || "";
+      $("toSelect").value = r.to || "";
+      $("dateInput").value = r.date;
+      $("typeSelect").value = r.type || "";
+      $("paxSelect").value = String(r.pax || 1);
+      state.tripType = r.tripType || "oneway";
+      const radio = document.querySelector(`input[name="tripType"][value="${state.tripType}"]`);
+      if (radio) radio.checked = true;
+      $("returnField").classList.toggle("hidden", state.tripType !== "roundtrip");
+      if (r.ret) $("returnDateInput").value = r.ret;
+      $("searchForm").requestSubmit();
+    }));
+}
+
+/* ---------- Popular Routes ---------- */
+function renderPopular() {
+  const counts = {};
+  BUSES.forEach((b) => {
+    if ((b.mode || "bus") !== state.mode) return;
+    const k = b.from + "|" + b.to;
+    counts[k] = counts[k] || { from: b.from, to: b.to, n: 0 };
+    counts[k].n++;
+  });
+  window._topRoutes = Object.values(counts).sort((a, b) => b.n - a.n).slice(0, 8);
+  const wrap = $("popularRoutes");
+  wrap.innerHTML = window._topRoutes.length
+    ? window._topRoutes.map((r) =>
+        `<button class="route-chip">${esc(r.from)} → ${esc(r.to)}<small>${r.n} เที่ยว/วัน</small></button>`).join("")
+    : '<span class="muted">ไม่มีข้อมูลเส้นทาง</span>';
+  wrap.querySelectorAll(".route-chip").forEach((ch, i) =>
+    ch.addEventListener("click", () => {
+      const r = window._topRoutes[i];
+      $("fromSelect").value = r.from;
+      $("toSelect").value = r.to;
+      $("searchForm").requestSubmit();
+    }));
+}
+
+/* ---------- Promo strip ---------- */
+async function loadPromoStrip() {
+  try {
+    const res = await fetch("/api/promos");
+    const promos = await res.json();
+    if (!promos.length) { $("promoStrip").classList.add("hidden"); return; }
+    $("promoStrip").innerHTML = promos.map((p) =>
+      `<span class="promo-chip">โค้ด <b>${esc(p.code)}</b> ลด ${p.percent}%</span>`).join("") +
+      `<span class="muted small">ใส่โค้ดได้ตอนกรอกข้อมูลผู้โดยสาร</span>`;
+    $("promoStrip").classList.remove("hidden");
+  } catch { $("promoStrip").classList.add("hidden"); }
 }
 
 /* ================= RENDER BUS LIST ================= */
 function getFilteredBuses() {
   return BUSES.filter((b) =>
+    (!state.mode || (b.mode || "bus") === state.mode) &&
     (!state.from || b.from === state.from) &&
     (!state.to || b.to === state.to) &&
     (!state.type || b.type === state.type)
   );
 }
+function busesFor(fromCity, toCity) {
+  return BUSES.filter((b) =>
+    (!state.mode || (b.mode || "bus") === state.mode) &&
+    (!state.type || b.type === state.type) &&
+    (!fromCity || b.from === fromCity) &&
+    (!toCity || b.to === toCity)
+  );
+}
 
-function renderBuses() {
-  const list = getFilteredBuses();
-  const wrap = $("busList");
-  $("emptyState").classList.toggle("hidden", list.length > 0);
-  $("resultsCount").textContent = `พบ ${list.length} เที่ยวรถ · ${fmtDate(state.date)}`;
-  $("resultsTitle").textContent =
-    state.from || state.to
-      ? `${state.from || "ทุกต้นทาง"} → ${state.to || "ทุกปลายทาง"}`
-      : "ทุกเส้นทาง";
-
-  wrap.innerHTML = list.map((bus, i) => {
+function busCardsHTML(list, date) {
+  return list.map((bus, i) => {
     const info = TYPE_INFO[bus.type];
-    const left = seatsLeftOf(bus, state.date);
-    const total = info.seats;
-    const pct = Math.round((left / total) * 100);
+    const left = seatsLeftOf(bus, date);
+    const totalSeats = bus.seats || info.seats;
+    const pct = Math.round((left / totalSeats) * 100);
     return `
     <article class="bus-card" style="animation-delay:${i * 0.06}s">
       <div class="bus-card-top">
@@ -212,30 +337,63 @@ function renderBuses() {
       </div>
       <div class="time-row">
         <span class="time">${bus.depart}</span>
-        <span class="arrow-line">${bus.duration}</span>
+        <span class="arrow-line">${esc(bus.duration)}</span>
         <span class="time">${bus.arrive}</span>
       </div>
-      <div class="muted small">รหัสเที่ยวรถ ${bus.id} · ${total} ที่นั่ง</div>
+      <div class="muted small">รหัสเที่ยวรถ ${bus.id} · ${totalSeats} ที่นั่ง</div>
       <div class="seat-progress">
         <div class="bar"><div class="fill ${pct < 25 ? "low" : ""}" style="width:${pct}%"></div></div>
         <div class="seat-text">
-          <span>ว่าง ${left} จาก ${total} ที่</span>
+          <span>ว่าง ${left} จาก ${totalSeats} ที่</span>
           <span>${pct}% ว่าง</span>
         </div>
       </div>
       <div class="bus-card-bottom">
         <div class="price">฿${bus.price.toLocaleString()} <small>/ ที่นั่ง</small></div>
-        <button class="btn btn-primary" data-book="${bus.id}" ${left === 0 ? "disabled" : ""}>
+        <button class="btn btn-primary" data-book="${bus.id}" data-date="${date}" ${left === 0 ? "disabled" : ""}>
           ${left === 0 ? "เต็มแล้ว" : "จองคิว"}
         </button>
       </div>
     </article>`;
   }).join("");
+}
+
+function renderBuses() {
+  const wrap = $("busList");
+  const roundTrip = state.tripType === "roundtrip" && !!state.returnDate;
+
+  const outbound = busesFor(state.from, state.to);
+  const back = roundTrip ? busesFor(state.to, state.from) : [];
+  const totalFound = outbound.length + back.length;
+
+  $("emptyState").classList.toggle("hidden", totalFound > 0);
+  $("resultsCount").textContent = roundTrip
+    ? `พบ ${outbound.length} เที่ยวขาไป · ${back.length} เที่ยวขากลับ`
+    : `พบ ${outbound.length} เที่ยวรถ · ${fmtDate(state.date)}`;
+  $("resultsTitle").textContent =
+    state.from || state.to
+      ? `${state.from || "ทุกต้นทาง"} → ${state.to || "ทุกปลายทาง"}${roundTrip ? " (ไป–กลับ)" : ""}`
+      : `ทุกเส้นทาง (${state.mode === "train" ? "รถไฟ" : state.mode === "ferry" ? "เรือเฟอร์รี่" : "รถบัส"})`;
+
+  let html = "";
+  if (roundTrip) {
+    html += `<div class="leg-title">ขาไป · ${fmtDate(state.date)}</div><div class="bus-grid">${
+      outbound.length ? busCardsHTML(outbound, state.date) : '<p class="muted leg-empty">ไม่พบเที่ยวขาไป</p>'
+    }</div>`;
+    html += `<div class="leg-title">ขากลับ · ${fmtDate(state.returnDate)}</div><div class="bus-grid">${
+      back.length ? busCardsHTML(back, state.returnDate) : '<p class="muted leg-empty">ไม่พบเที่ยวขากลับ — ลองเลือกวันอื่น</p>'
+    }</div>`;
+    wrap.classList.add("wide");
+  } else {
+    html = busCardsHTML(outbound, state.date);
+    wrap.classList.remove("wide");
+  }
+  wrap.innerHTML = html;
 
   wrap.querySelectorAll("[data-book]").forEach((btn) =>
-    btn.addEventListener("click", () => openBooking(btn.dataset.book)));
+    btn.addEventListener("click", () => openBooking(btn.dataset.book, btn.dataset.date)));
 
-  renderStats(list);
+  renderStats(getFilteredBuses());
 }
 
 function renderStats(list) {
@@ -250,16 +408,19 @@ function renderStats(list) {
 }
 
 /* ================= BOOKING MODAL ================= */
-function openBooking(busId) {
+function openBooking(busId, date) {
   const bus = findBus(busId);
   if (!bus) return;
   state.currentBusId = busId;
+  state.currentDate = date || state.date;
   state.selectedSeats.clear();
+  state.appliedPromo = null;
+  $("promoCode").value = "";
 
   const info = TYPE_INFO[bus.type];
   $("modalRoute").textContent = `${bus.from} → ${bus.to}`;
   $("modalMeta").textContent =
-    `${fmtDate(state.date)} · ออก ${bus.depart} ถึง ${bus.arrive} · ${info.label} (${info.seats} ที่นั่ง)`;
+    `${fmtDate(state.currentDate)} · ออก ${bus.depart} ถึง ${bus.arrive} · ${info.label} (${info.seats} ที่นั่ง)`;
 
   showStep("stepSeats");
   renderSeatMap();
@@ -273,15 +434,15 @@ function closeModal() {
 }
 
 function showStep(stepId) {
-  ["stepSeats", "stepInfo", "stepDone"].forEach((id) =>
+  ["stepSeats", "stepInfo", "stepPay", "stepDone"].forEach((id) =>
     $(id).classList.toggle("hidden", id !== stepId));
 }
 
 function renderSeatMap() {
   const bus = findBus(state.currentBusId);
   const total = TYPE_INFO[bus.type].seats;
-  const occ = getOccupied(bus.id, state.date, total);
-  getUserTaken(bus.id, state.date).forEach((s) => occ.add(s));
+  const occ = getOccupied(bus.id, state.currentDate, total);
+  getUserTaken(bus.id, state.currentDate).forEach((s) => occ.add(s));
   const map = $("seatMap");
 
   // layout: rows of [seat, seat, aisle, seat, seat] -> grid 5 cols
@@ -309,42 +470,119 @@ function toggleSeat(n) {
 function updateSummary() {
   const bus = findBus(state.currentBusId);
   const seats = [...state.selectedSeats].sort((a, b) => a - b);
-  $("selCount").textContent = seats.length;
+  $("selCount").textContent = `${seats.length}/${state.pax}`;
   $("selSeats").textContent = seats.length ? seats.join(", ") : "–";
   $("selTotal").textContent = (seats.length * bus.price).toLocaleString();
-  $("toInfoBtn").disabled = seats.length === 0;
+  $("toInfoBtn").disabled = seats.length !== state.pax;
+}
+
+function computeTotals() {
+  const bus = findBus(state.currentBusId);
+  const seats = [...state.selectedSeats].sort((a, b) => a - b);
+  const gross = seats.length * bus.price;
+  const pct = state.appliedPromo ? state.appliedPromo.percent : 0;
+  const discount = Math.round((gross * pct) / 100);
+  return { bus, seats, gross, pct, discount, net: gross - discount };
+}
+
+function refreshSummaries() {
+  const t = computeTotals();
+  $("sumRoute").textContent = `${t.bus.from} → ${t.bus.to}`;
+  $("sumDetail").textContent =
+    `${fmtDate(state.currentDate)} · ${t.bus.depart} · ที่นั่ง ${t.seats.join(", ")}`;
+  $("sumTotal").textContent = t.net.toLocaleString();
+  $("discountLine").classList.toggle("hidden", t.discount === 0);
+  if (t.discount > 0) {
+    $("discountPct").textContent = `${state.appliedPromo.code} -${t.pct}%`;
+    $("discountAmt").textContent = t.discount.toLocaleString();
+  }
+  $("payAmount").textContent = t.net.toLocaleString();
 }
 
 $("toInfoBtn").addEventListener("click", () => {
-  const bus = findBus(state.currentBusId);
-  const seats = [...state.selectedSeats].sort((a, b) => a - b);
-  $("sumRoute").textContent = `${bus.from} → ${bus.to}`;
-  $("sumDetail").textContent =
-    `${fmtDate(state.date)} · ${bus.depart} · ที่นั่ง ${seats.join(", ")}`;
-  $("sumTotal").textContent = (seats.length * bus.price).toLocaleString();
+  if (state.selectedSeats.size !== state.pax) {
+    showToast(`กรุณาเลือกให้ครบ ${state.pax} ที่นั่งตามจำนวนผู้โดยสาร`, true);
+    return;
+  }
+  refreshSummaries();
   showStep("stepInfo");
+});
+
+/* ---------- Promo code ---------- */
+$("applyPromoBtn").addEventListener("click", async () => {
+  const code = $("promoCode").value.trim().toUpperCase();
+  if (!code) {
+    state.appliedPromo = null;
+    refreshSummaries();
+    showToast("ล้างโค้ดส่วนลดแล้ว");
+    return;
+  }
+  try {
+    const res = await fetch("/api/promos");
+    const promos = await res.json();
+    const found = promos.find((p) => p.code === code);
+    if (!found) {
+      state.appliedPromo = null;
+      showToast("ไม่พบโค้ดนี้ หรือโค้ดหมดอายุ", true);
+    } else {
+      state.appliedPromo = found;
+      showToast(`ใช้โค้ด ${found.code} ลด ${found.percent}% แล้ว`);
+    }
+  } catch {
+    showToast("ตรวจสอบโค้ดไม่ได้ (โหมดออฟไลน์)", true);
+  }
+  refreshSummaries();
 });
 
 $("backToSeats").addEventListener("click", () => showStep("stepSeats"));
 
-$("confirmBtn").addEventListener("click", async () => {
+$("confirmBtn").addEventListener("click", () => {
   const name = $("custName").value.trim();
   const phone = $("custPhone").value.trim();
-  const note = $("custNote").value.trim();
-
   if (name.length < 3) { showToast("กรุณากรอกชื่อ–นามสกุลให้ครบถ้วน", true); return; }
   if (!/^0\d{8,9}$/.test(phone.replace(/[-\s]/g, ""))) {
     showToast("เบอร์โทรศัพท์ไม่ถูกต้อง (เช่น 0812345678)", true); return;
   }
+  state.custName = name;
+  state.custPhone = phone;
+  state.custNote = $("custNote").value.trim();
+  refreshSummaries();
+  updatePayUI();
+  showStep("stepPay");
+});
 
+/* ---------- Payment ---------- */
+const PAY_LABELS = { promptpay: "QR PromptPay", card: "บัตรเครดิต / เดบิต", wallet: "e-Wallet" };
+function selectedPayMethod() {
+  const el = document.querySelector('input[name="payMethod"]:checked');
+  return el ? el.value : "promptpay";
+}
+function updatePayUI() {
+  $("qrBox").classList.toggle("hidden", selectedPayMethod() !== "promptpay");
+}
+document.querySelectorAll('input[name="payMethod"]').forEach((r) =>
+  r.addEventListener("change", updatePayUI));
+$("backToInfo").addEventListener("click", () => showStep("stepInfo"));
+
+$("payNowBtn").addEventListener("click", async () => {
   const bus = findBus(state.currentBusId);
+  const seats = [...state.selectedSeats].sort((a, b) => a - b);
+  const payMethod = selectedPayMethod();
+  const btn = $("payNowBtn");
+  btn.disabled = true;
+  btn.textContent = "กำลังชำระเงิน...";
+  await new Promise((r) => setTimeout(r, 1200)); // จำลองการชำระเงิน
+
+  const t = computeTotals();
   const payload = {
     busId: bus.id,
-    date: state.date,
-    seats: [...state.selectedSeats].sort((a, b) => a - b),
-    name,
-    phone,
-    note,
+    date: state.currentDate,
+    seats,
+    name: state.custName,
+    phone: state.custPhone,
+    note: state.custNote,
+    promoCode: state.appliedPromo ? state.appliedPromo.code : null,
+    payMethod,
   };
 
   let booking = null;
@@ -356,7 +594,12 @@ $("confirmBtn").addEventListener("click", async () => {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { showToast(data.error || "ไม่สามารถจองได้", true); return; }
+      if (!res.ok) {
+        showToast(data.error || "ไม่สามารถจองได้", true);
+        btn.disabled = false;
+        btn.textContent = "ชำระเงินและยืนยันการจอง";
+        return;
+      }
       booking = data.booking;
       bookings.unshift(booking);
     } catch {
@@ -367,10 +610,15 @@ $("confirmBtn").addEventListener("click", async () => {
     booking = {
       code: genCode(),
       busId: bus.id,
-      date: state.date,
-      seats: payload.seats,
-      name, phone, note,
-      total: payload.seats.length * bus.price,
+      date: state.currentDate,
+      seats,
+      name: state.custName,
+      phone: state.custPhone,
+      note: state.custNote,
+      promoCode: state.appliedPromo ? state.appliedPromo.code : null,
+      discount: t.discount,
+      total: t.net,
+      payMethod,
       status: "active",
       createdAt: new Date().toISOString(),
     };
@@ -381,12 +629,15 @@ $("confirmBtn").addEventListener("click", async () => {
   updateBadge();
 
   $("tkCode").textContent = booking.code;
-  $("tkName").textContent = name;
+  $("tkName").textContent = booking.name;
   $("tkRoute").textContent = `${bus.from} → ${bus.to}`;
   $("tkDateTime").textContent = `${fmtDate(booking.date)} · ${bus.depart}`;
   $("tkSeats").textContent = booking.seats.join(", ");
+  $("tkPay").textContent = PAY_LABELS[booking.payMethod] || "—";
   showStep("stepDone");
-  showToast("จองคิวสำเร็จ! ขอบคุณที่ใช้บริการ BusGo");
+  showToast("ชำระเงินสำเร็จ! ขอบคุณที่ใช้บริการ BusGo");
+  btn.disabled = false;
+  btn.textContent = "ชำระเงินและยืนยันการจอง";
 });
 
 $("closeModal").addEventListener("click", () => { closeModal(); renderBuses(); });
@@ -413,6 +664,18 @@ function renderTickets() {
   const mine = bookings.filter((bk) => myCodes().includes(bk.code));
   const wrap = $("ticketList");
   const has = mine.length > 0;
+
+  // แต้มสะสม: 1 แต้มทุก 100 บาท (นับจากตั๋ว active ของเบอร์โทรเดียวกัน)
+  const phones = [...new Set(mine.map((b) => b.phone))];
+  const pts = bookings
+    .filter((b) => b.status === "active" && phones.includes(b.phone))
+    .reduce((s, b) => s + Math.floor(b.total / 100), 0);
+  const pb = $("pointsBar");
+  pb.classList.toggle("hidden", pts === 0);
+  if (pts > 0) {
+    pb.innerHTML = `คะแนนสะสมของคุณ: <b>${pts} แต้ม</b> <span class="muted">(สะสม 1 แต้มทุกทุกการจอง 100 ฿ แลกส่วนลดได้ในการจองครั้งถัดไป)</span>`;
+  }
+
   $("ticketEmpty").classList.toggle("hidden", has);
   wrap.innerHTML = mine.map((bk, i) => {
     const bus = findBus(bk.busId);
@@ -470,6 +733,8 @@ initFilters();
 loadData().then(() => {
   renderBuses();
   updateBadge();
+  renderPopular();
+  loadPromoStrip();
 });
 
 

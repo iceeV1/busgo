@@ -23,6 +23,7 @@ function fmtDate(iso) {
 let KEY = sessionStorage.getItem("bg_admin_key") || "";
 let buses = [];
 let bookings = [];
+let promos = [];
 let editingBusId = null;
 
 async function api(path, opts = {}) {
@@ -67,7 +68,7 @@ document.querySelectorAll(".admin-tabs .nav-link").forEach((btn) =>
   btn.addEventListener("click", () => {
     document.querySelectorAll(".admin-tabs .nav-link").forEach((b) =>
       b.classList.toggle("active", b === btn));
-    ["dash", "bookings", "buses"].forEach((id) =>
+    ["dash", "bookings", "buses", "promos"].forEach((id) =>
       $("tab-" + id).classList.toggle("hidden", id !== btn.dataset.tab));
   })
 );
@@ -219,6 +220,7 @@ function openBusForm(editId) {
     $("fFrom").value = bus.from; $("fTo").value = bus.to;
     $("fDepart").value = bus.depart; $("fArrive").value = bus.arrive;
     $("fDuration").value = bus.duration; $("fType").value = bus.type;
+    $("fMode").value = bus.mode || "bus";
     $("fPrice").value = bus.price;
   } else {
     $("busForm").reset();
@@ -237,6 +239,7 @@ $("busSave").addEventListener("click", async () => {
     from: $("fFrom").value, to: $("fTo").value,
     depart: $("fDepart").value, arrive: $("fArrive").value,
     duration: $("fDuration").value, type: $("fType").value,
+    mode: $("fMode").value,
     price: Number($("fPrice").value),
   };
   try {
@@ -252,11 +255,59 @@ $("busSave").addEventListener("click", async () => {
 
 /* ================= INIT / REFRESH ================= */
 async function refresh() {
-  [buses, bookings] = await Promise.all([api("/api/buses"), api("/api/bookings")]);
+  [buses, bookings, promos] = await Promise.all([
+    api("/api/buses"),
+    api("/api/bookings"),
+    api("/api/promos"),
+  ]);
   renderDash();
   renderBookings();
   renderBuses();
+  renderPromos();
 }
+
+/* ================= PROMOTIONS ================= */
+function renderPromos() {
+  $("promoTable").innerHTML = `
+    <thead><tr><th>โค้ด</th><th>ส่วนลด</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+    <tbody>${promos.length ? promos.map((p) => `
+      <tr>
+        <td class="cell-code">${esc(p.code)}</td>
+        <td>ลด ${p.percent}%</td>
+        <td><span class="status-pill ${p.active ? "status-active" : "status-cancelled"}">${p.active ? "ใช้งาน" : "ปิดใช้งาน"}</span></td>
+        <td><div class="actions">
+          <button class="btn-sm btn-warn" data-ptoggle="${esc(p.code)}">${p.active ? "ปิดใช้งาน" : "เปิดใช้งาน"}</button>
+          <button class="btn-sm btn-danger" data-pdel="${esc(p.code)}">ลบ</button>
+        </div></td>
+      </tr>`).join("") : `<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--muted)">ยังไม่มีโค้ดโปรโมชั่น</td></tr>`}</tbody>`;
+
+  $("promoTable").querySelectorAll("[data-ptoggle]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      try { await api(`/api/promos/${encodeURIComponent(b.dataset.ptoggle)}/toggle`, { method: "PATCH" }); toast("อัปเดตสถานะโค้ดแล้ว"); refresh(); }
+      catch (e) { toast(e.message, true); }
+    }));
+  $("promoTable").querySelectorAll("[data-pdel]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      if (!confirm(`ลบโค้ด ${b.dataset.pdel}?`)) return;
+      try { await api(`/api/promos/${encodeURIComponent(b.dataset.pdel)}`, { method: "DELETE" }); toast("ลบโค้ดแล้ว"); refresh(); }
+      catch (e) { toast(e.message, true); }
+    }));
+}
+
+$("prAdd").addEventListener("click", async () => {
+  const code = $("prCode").value.trim();
+  const percent = Number($("prPercent").value);
+  if (!code || !percent) { toast("กรุณากรอกโค้ดและ % ส่วนลด", true); return; }
+  try {
+    await api("/api/promos", { method: "POST", body: { code, percent } });
+    toast(`เพิ่มโค้ด ${code.toUpperCase()} แล้ว`);
+    $("prCode").value = "";
+    $("prPercent").value = "";
+    refresh();
+  } catch (e) {
+    toast(e.message, true);
+  }
+});
 
 (async function init() {
   showLogin(true);
