@@ -1,0 +1,13 @@
+# ข้อมูล runtime (ฐานข้อมูลการจอง) — server.js จะสร้างให้เองตอนรันครั้งแรก
+data/
+
+# dependencies (ถ้าต่อยอดใช้ npm ในอนาคต)
+node_modules/
+package-lock.json
+
+# ไฟล์ระบบ / editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

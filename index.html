@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BusGo — จองตั๋วรถบัสออนไลน์</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo">🚌 <span>Bus<span class="logo-accent">Go</span></span></div>
+      <nav class="nav">
+        <button class="nav-link active" data-tab="schedules">ตารางเดินรถ</button>
+        <button class="nav-link" data-tab="tickets">ตั๋วของฉัน <span id="ticketBadge" class="badge-count hidden">0</span></button>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <h1 class="hero-title">เดินทางทั่วไทย <span class="gradient-text">ง่าย ไว สบายใจ</span></h1>
+      <p class="hero-sub">ค้นหารอบรถบัส จองคิว เลือกที่นั่ง และรับ e-Ticket ได้ในไม่กี่คลิก</p>
+
+      <form id="searchForm" class="search-card glass">
+        <div class="search-field">
+          <label>ต้นทาง</label>
+          <select id="fromSelect"></select>
+        </div>
+        <button type="button" id="swapBtn" class="swap-btn" title="สลับเส้นทาง">⇄</button>
+        <div class="search-field">
+          <label>ปลายทาง</label>
+          <select id="toSelect"></select>
+        </div>
+        <div class="search-field">
+          <label>วันที่เดินทาง</label>
+          <input type="date" id="dateInput" />
+        </div>
+        <div class="search-field">
+          <label>ประเภทรถ</label>
+          <select id="typeSelect">
+            <option value="">ทุกประเภท</option>
+            <option value="vip">VIP (32 ที่นั่ง)</option>
+            <option value="air">ปรับอากาศ (44 ที่นั่ง)</option>
+            <option value="eco">ธรรมดา (48 ที่นั่ง)</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary search-btn">🔍&nbsp; ค้นหารอบรถ</button>
+      </form>
+
+      <div class="stats-row" id="statsRow"></div>
+    </div>
+  </section>
+
+  <main class="container page" id="tab-schedules">
+    <div class="results-header">
+      <h2 id="resultsTitle">🚏 รอบรถวันนี้</h2>
+      <span id="resultsCount" class="muted"></span>
+    </div>
+    <div id="busList" class="bus-grid"></div>
+    <div id="emptyState" class="empty-state hidden">
+      <div class="empty-icon">🕳️</div>
+      <h3>ไม่พบรอบรถ</h3>
+      <p>ลองเปลี่ยนเส้นทาง วันที่ หรือประเภทรถ แล้วค้นหาอีกครั้ง</p>
+    </div>
+  </main>
+
+  <main class="container page hidden" id="tab-tickets">
+    <div class="results-header"><h2>🎟️ ตั๋วของฉัน</h2></div>
+    <div id="ticketList" class="ticket-grid"></div>
+    <div id="ticketEmpty" class="empty-state hidden">
+      <div class="empty-icon">🎫</div>
+      <h3>ยังไม่มีตั๋ว</h3>
+      <p>ไปจองคิวรถบัสเที่ยวแรกของคุณได้ที่แท็บ "ตารางเดินรถ"</p>
+    </div>
+  </main>
+
+  <div class="modal-overlay hidden" id="bookingModal">
+    <div class="modal glass-strong">
+      <div class="modal-head">
+        <div>
+          <h3 id="modalRoute">—</h3>
+          <p id="modalMeta" class="muted small"></p>
+        </div>
+        <button class="close-btn" id="closeModal">✕</button>
+      </div>
+
+      <!-- STEP 1 : SEATS -->
+      <div id="stepSeats">
+        <div class="step-label">ขั้นตอน 1/3 · เลือกที่นั่ง</div>
+        <div class="legend">
+          <span><i class="dot dot-free"></i>ว่าง</span>
+          <span><i class="dot dot-taken"></i>ถูกจอง</span>
+          <span><i class="dot dot-selected"></i>ที่เลือก</span>
+        </div>
+        <div class="seat-wrap">
+          <div class="driver">🚍 คนขับ</div>
+          <div id="seatMap" class="seat-map"></div>
+        </div>
+        <div class="booking-summary">
+          <div>เลือกแล้ว <b id="selCount">0</b> ที่นั่ง (<span id="selSeats">–</span>)</div>
+          <div class="total">฿<span id="selTotal">0</span></div>
+        </div>
+        <div class="modal-actions">
+          <span></span>
+          <button class="btn btn-primary" id="toInfoBtn" disabled>ถัดไป →</button>
+        </div>
+      </div>
+
+      <!-- STEP 2 : INFO -->
+      <div id="stepInfo" class="hidden">
+        <div class="step-label">ขั้นตอน 2/3 · ข้อมูลผู้โดยสาร</div>
+        <form id="infoForm" class="info-form">
+          <label>ชื่อ–นามสกุล *
+            <input type="text" id="custName" placeholder="เช่น สมชาย ใจดี" required />
+          </label>
+          <label>เบอร์โทรศัพท์ *
+            <input type="tel" id="custPhone" placeholder="08x-xxx-xxxx" required />
+          </label>
+          <label>หมายเหตุ (ถ้ามี)
+            <input type="text" id="custNote" placeholder="เช่น ขึ้นที่ป้ายหน้าห้าง" />
+          </label>
+        </form>
+        <div class="booking-summary">
+          <div><span id="sumRoute"></span><br /><small class="muted" id="sumDetail"></small></div>
+          <div class="total">฿<span id="sumTotal">0</span></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="backToSeats">← กลับ</button>
+          <button type="button" class="btn btn-primary" id="confirmBtn">✓ ยืนยันการจอง</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 : TICKET -->
+      <div id="stepDone" class="hidden">
+        <div class="step-label success">✓ จองสำเร็จ! e-Ticket ของคุณ</div>
+        <div class="eticket">
+          <div class="eticket-head">
+            <span class="logo small-logo">🚌 BusGo</span>
+            <span id="tkCode" class="tk-code"></span>
+          </div>
+          <div class="eticket-body">
+            <div><small>ผู้โดยสาร</small><b id="tkName"></b></div>
+            <div><small>เส้นทาง</small><b id="tkRoute"></b></div>
+            <div><small>วันที่ / เวลา</small><b id="tkDateTime"></b></div>
+            <div><small>ที่นั่ง</small><b id="tkSeats"></b></div>
+          </div>
+          <div class="eticket-tear"></div>
+          <div class="eticket-foot">
+            <div id="tkBarcode" class="barcode"></div>
+            <div class="muted small">แสดงรหัสนี้แก่พนักงานก่อนขึ้นรถ</div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="doneClose">ปิด</button>
+          <button type="button" class="btn btn-primary" id="viewTicketsBtn">ดูตั๋วของฉัน →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <footer class="footer">
+    <div class="container">© 2026 BusGo · ระบบจองคิวรถบัสออนไลน์ · โทร 1789</div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
+

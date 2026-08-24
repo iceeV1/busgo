@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BusGo Admin — หลังบ้าน</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="admin">
+
+  <!-- LOGIN -->
+  <div class="login-overlay" id="loginOverlay">
+    <form class="login-card glass-strong" id="loginForm">
+      <h2>🔐 BusGo Admin</h2>
+      <p class="muted small">เข้าสู่ระบบผู้ดูแลหลังบ้าน</p>
+      <input type="password" id="adminPass" placeholder="รหัสผ่านผู้ดูแล" required autocomplete="current-password" />
+      <button type="submit" class="btn btn-primary">เข้าสู่ระบบ</button>
+      <p class="muted small">รหัสผ่านเริ่มต้น: <code>admin1234</code></p>
+    </form>
+  </div>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo">🚌 Bus<span class="logo-accent">Go</span><span class="admin-tag">ADMIN</span></div>
+      <div class="nav">
+        <a href="/" class="nav-link" style="text-decoration:none">← หน้าเว็บหลัก</a>
+        <button class="nav-link" id="logoutBtn">ออกจากระบบ</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container admin-main">
+    <nav class="admin-tabs">
+      <button class="nav-link active" data-tab="dash">📊 ภาพรวม</button>
+      <button class="nav-link" data-tab="bookings">🎟️ การจอง</button>
+      <button class="nav-link" data-tab="buses">🚌 จัดการรอบรถ</button>
+    </nav>
+
+    <!-- DASHBOARD -->
+    <section id="tab-dash">
+      <div class="stat-cards" id="statCards"></div>
+      <div class="panel glass">
+        <h3>🔥 เส้นทางยอดนิยม (ตามตั๋วที่ยืนยันแล้ว)</h3>
+        <div id="routeBars"></div>
+      </div>
+    </section>
+
+    <!-- BOOKINGS -->
+    <section id="tab-bookings" class="hidden">
+      <div class="filter-row glass">
+        <input type="search" id="bkSearch" placeholder="🔍 ค้นหารหัส / ชื่อ / เบอร์โทร..." />
+        <input type="date" id="bkDate" />
+        <select id="bkStatus">
+          <option value="">ทุกสถานะ</option>
+          <option value="active">ยืนยันแล้ว</option>
+          <option value="cancelled">ยกเลิกแล้ว</option>
+        </select>
+        <button class="btn btn-primary btn-sm" id="bkRefresh" style="padding:11px 18px">↻ รีเฟรช</button>
+        <button class="btn btn-ghost btn-sm" id="csvBtn" style="padding:11px 18px">⬇ Export CSV</button>
+      </div>
+      <div class="table-wrap glass"><table class="data-table" id="bkTable"></table></div>
+    </section>
+
+    <!-- BUSES -->
+    <section id="tab-buses" class="hidden">
+      <div class="filter-row glass">
+        <span class="muted small">จัดการเที่ยวรถทั้งหมด — เพิ่ม แก้ไข หรือลบรอบรถได้ทันที</span>
+        <span style="flex:1"></span>
+        <button class="btn btn-primary btn-sm" id="addBusBtn" style="padding:11px 18px">＋ เพิ่มเที่ยวรถ</button>
+      </div>
+      <div class="table-wrap glass"><table class="data-table" id="busTable"></table></div>
+    </section>
+
+    <!-- BUS FORM MODAL -->
+    <div class="modal-overlay hidden" id="busModal">
+      <div class="modal glass-strong">
+        <div class="modal-head">
+          <h3 id="busFormTitle">เพิ่มเที่ยวรถ</h3>
+          <button class="close-btn" id="busClose">✕</button>
+        </div>
+        <form id="busForm" class="info-form form-grid" onsubmit="return false">
+          <label>ต้นทาง<input id="fFrom" required placeholder="เช่น กรุงเทพฯ" /></label>
+          <label>ปลายทาง<input id="fTo" required placeholder="เช่น เชียงใหม่" /></label>
+          <label>เวลาออก<input type="time" id="fDepart" required /></label>
+          <label>เวลาถึง<input type="time" id="fArrive" required /></label>
+          <label>ระยะเวลา<input id="fDuration" required placeholder="เช่น 9 ชม. 30 นาที" /></label>
+          <label>ประเภทรถ
+            <select id="fType">
+              <option value="vip">VIP (32 ที่นั่ง)</option>
+              <option value="air">ปรับอากาศ (44 ที่นั่ง)</option>
+              <option value="eco">ธรรมดา (48 ที่นั่ง)</option>
+            </select>
+          </label>
+          <label>ราคา (บาท)<input type="number" id="fPrice" min="0" step="10" required /></label>
+        </form>
+        <div class="modal-actions">
+          <span></span>
+          <button class="btn btn-primary" id="busSave">💾 บันทึก</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+  </main>
+
+  <script src="admin.js"></script>
+</body>
+</html>
