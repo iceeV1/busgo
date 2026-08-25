@@ -460,8 +460,15 @@ function renderSeatMap() {
 }
 
 function toggleSeat(n) {
-  if (state.selectedSeats.has(n)) state.selectedSeats.delete(n);
-  else state.selectedSeats.add(n);
+  if (state.selectedSeats.has(n)) {
+    state.selectedSeats.delete(n);
+  } else {
+    if (state.selectedSeats.size >= state.pax) {
+      showToast(`จำนวนผู้โดยสาร ${state.pax} คน — เลือกได้ ${state.pax} ที่นั่ง (เปลี่ยนได้ที่ช่อง Pax หน้าค้นหา)`, true);
+      return;
+    }
+    state.selectedSeats.add(n);
+  }
   const btn = document.querySelector(`.seat[data-seat="${n}"]`);
   if (btn) btn.classList.toggle("selected", state.selectedSeats.has(n));
   updateSummary();
@@ -470,10 +477,23 @@ function toggleSeat(n) {
 function updateSummary() {
   const bus = findBus(state.currentBusId);
   const seats = [...state.selectedSeats].sort((a, b) => a - b);
-  $("selCount").textContent = `${seats.length}/${state.pax}`;
+  $("selCount").textContent = `${seats.length}`;
+  $("selPaxTotal").textContent = state.pax;
   $("selSeats").textContent = seats.length ? seats.join(", ") : "–";
   $("selTotal").textContent = (seats.length * bus.price).toLocaleString();
-  $("toInfoBtn").disabled = seats.length !== state.pax;
+  $("toInfoBtn").disabled = seats.length === 0;
+
+  const hint = $("paxHint");
+  if (seats.length === state.pax) {
+    hint.textContent = "เลือกครบแล้ว กดถัดไปได้เลย";
+    hint.className = "pax-hint ok";
+  } else if (seats.length < state.pax) {
+    hint.textContent = `ต้องเลือกให้ครบ ${state.pax} ที่นั่ง — เหลืออีก ${state.pax - seats.length} ที่`;
+    hint.className = "pax-hint warn";
+  } else {
+    hint.textContent = `เกินจำนวนผู้โดยสาร (${state.pax} คน) — ยกเลิกที่นั่งส่วนเกิน หรือเปลี่ยน Pax หน้าค้นหา`;
+    hint.className = "pax-hint warn";
+  }
 }
 
 function computeTotals() {
@@ -501,7 +521,7 @@ function refreshSummaries() {
 
 $("toInfoBtn").addEventListener("click", () => {
   if (state.selectedSeats.size !== state.pax) {
-    showToast(`กรุณาเลือกให้ครบ ${state.pax} ที่นั่งตามจำนวนผู้โดยสาร`, true);
+    showToast(`เลือกได้ ${state.selectedSeats.size}/${state.pax} ที่นั่ง — ต้องครบตามจำนวนผู้โดยสาร (เปลี่ยนได้ที่ช่อง Pax หน้าค้นหา)`, true);
     return;
   }
   refreshSummaries();

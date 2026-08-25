@@ -546,6 +546,10 @@ body {
 }
 .points-bar b { color: var(--green); font-size: 1.05rem; }
 
+.pax-hint { font-size: 0.78rem; margin-top: 4px; }
+.pax-hint.ok { color: var(--green); }
+.pax-hint.warn { color: var(--gold); }
+
 .leg-title {
   font-weight: 600; font-size: 1.02rem; color: var(--accent);
   margin: 6px 0 12px; padding-left: 12px; border-left: 3px solid var(--primary);
