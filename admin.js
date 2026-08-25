@@ -309,6 +309,23 @@ $("prAdd").addEventListener("click", async () => {
   }
 });
 
+/* ================= UPDATE NOTIFIER (admin) ================= */
+const ADMIN_UPDATE_KEY = "busgo_admin_loaded_version";
+async function checkForUpdate(first = false) {
+  try {
+    const res = await fetch("/api/version", { cache: "no-store" });
+    const data = await res.json();
+    const loaded = sessionStorage.getItem(ADMIN_UPDATE_KEY);
+    if (first) { sessionStorage.setItem(ADMIN_UPDATE_KEY, data.version); return; }
+    if (loaded && loaded !== data.version && !checkForUpdate._shown) {
+      checkForUpdate._shown = true;
+      toast("มีเวอร์ชันใหม่ของระบบ — แนะนำให้รีเฟรชหน้าเว็บ (F5)");
+    }
+  } catch {}
+}
+setInterval(checkForUpdate, 60000);
+checkForUpdate(true);
+
 (async function init() {
   showLogin(true);
   if (KEY) {

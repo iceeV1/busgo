@@ -748,6 +748,28 @@ async function cancelBooking(code) {
   showToast("ยกเลิกการจองเรียบร้อยแล้ว");
 }
 
+/* ================= UPDATE NOTIFIER ================= */
+const UPDATE_KEY = "busgo_loaded_version";
+async function checkForUpdate(first = false) {
+  try {
+    const res = await fetch("/api/version", { cache: "no-store" });
+    const data = await res.json();
+    const loaded = sessionStorage.getItem(UPDATE_KEY);
+    if (first) {
+      sessionStorage.setItem(UPDATE_KEY, data.version);
+      return;
+    }
+    if (loaded && loaded !== data.version) {
+      $("updateOverlay").classList.remove("hidden");
+    }
+  } catch {} // ออฟไลน์ไม่ต้องแจ้ง
+}
+$("updateReloadBtn").addEventListener("click", () => location.reload());
+setInterval(checkForUpdate, 60000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) checkForUpdate();
+});
+
 /* ================= INIT ================= */
 initFilters();
 loadData().then(() => {
@@ -756,6 +778,7 @@ loadData().then(() => {
   renderPopular();
   loadPromoStrip();
 });
+checkForUpdate(true);
 
 
 

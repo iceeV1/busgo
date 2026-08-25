@@ -550,6 +550,41 @@ body {
 .pax-hint.ok { color: var(--green); }
 .pax-hint.warn { color: var(--gold); }
 
+/* ================= UPDATE NOTIFIER ================= */
+.update-overlay {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(5, 8, 20, 0.75); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: fadeIn .25s ease;
+}
+.update-card {
+  background: #ffffff; color: #1a2233;
+  border-radius: 22px; padding: 34px 30px 22px;
+  max-width: 430px; width: 100%; text-align: center;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  animation: popIn .3s ease;
+}
+.update-icon {
+  width: 84px; height: 84px; margin: 0 auto 16px; border-radius: 50%;
+  border: 4px solid #e8ecf7; display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.update-icon::before {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%;
+  border: 4px solid transparent; border-top-color: #2563eb;
+  animation: updateSpin 1.2s linear infinite;
+}
+.update-glyph { font-size: 2rem; color: #2563eb; line-height: 1; }
+@keyframes updateSpin { to { transform: rotate(360deg); } }
+.update-card h3 { margin: 0 0 10px; font-size: 1.3rem; }
+.update-card p { margin: 0 0 20px; color: #5a6478; font-size: 0.92rem; line-height: 1.7; }
+.update-btn { width: 100%; padding: 15px; font-size: 1.05rem; border-radius: 14px; }
+.update-sub { margin-top: 12px; color: #8a93a6; font-size: 0.8rem; }
+.update-foot {
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid #eef1f7;
+  color: #b3bac9; font-size: 0.68rem; letter-spacing: 2px;
+}
+
 .leg-title {
   font-weight: 600; font-size: 1.02rem; color: var(--accent);
   margin: 6px 0 12px; padding-left: 12px; border-left: 3px solid var(--primary);

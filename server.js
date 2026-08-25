@@ -12,6 +12,7 @@ const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const ADMIN_KEY = process.env.ADMIN_KEY || "admin1234";
+const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 
 const TYPE_INFO = {
   vip: { seats: 32 },
@@ -320,6 +321,11 @@ async function handleApi(req, res, p) {
       saveDB(db);
       return send(res, 200, { deleted: code });
     }
+  }
+
+  /* ---------- VERSION (update notifier) ---------- */
+  if (p === "/api/version" && m === "GET") {
+    return send(res, 200, { version: APP_VERSION });
   }
 
   /* ---------- ADMIN AUTH CHECK ---------- */
