@@ -8,6 +8,11 @@ package-lock.json
 # ไฟล์ระบบ / editor
 .DS_Store
 Thumbs.db
+desktop.ini
 *.log
 .vscode/
 .idea/
+
+# ไฟล์ภาพ/เอกสารส่วนตัวที่โยนลงโฟลเดอร์ (ไม่ใช่โค้ด)
+test.jpeg
+*.ps1
