@@ -754,15 +754,25 @@ async function checkForUpdate(first = false) {
   try {
     const res = await fetch("/api/version", { cache: "no-store" });
     const data = await res.json();
+
+    // แสดงเลขเวอร์ชันล่าสุดที่ footer
+    const tag = $("versionTag");
+    if (tag) tag.textContent =
+      `เวอร์ชัน v${data.short} (${data.source === "render" ? "Render" : "Local"}) · ตรวจสอบล่าสุด ${new Date().toLocaleTimeString("th-TH")} · ล่าสุดแล้ว`;
+
     const loaded = sessionStorage.getItem(UPDATE_KEY);
     if (first) {
       sessionStorage.setItem(UPDATE_KEY, data.version);
       return;
     }
     if (loaded && loaded !== data.version) {
+      $("updateFoot").textContent = `BUILD v${data.short} DETECTED ON SERVER`;
       $("updateOverlay").classList.remove("hidden");
     }
-  } catch {} // ออฟไลน์ไม่ต้องแจ้ง
+  } catch {
+    const tag = $("versionTag");
+    if (tag) tag.textContent = "ออฟไลน์ — ไม่สามารถตรวจสอบเวอร์ชันได้";
+  }
 }
 $("updateReloadBtn").addEventListener("click", () => location.reload());
 setInterval(checkForUpdate, 60000);

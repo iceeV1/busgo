@@ -13,6 +13,8 @@ const DATA_DIR = path.join(ROOT, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const ADMIN_KEY = process.env.ADMIN_KEY || "admin1234";
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
+const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
+const APP_STARTED_AT = new Date().toISOString();
 
 const TYPE_INFO = {
   vip: { seats: 32 },
@@ -325,7 +327,12 @@ async function handleApi(req, res, p) {
 
   /* ---------- VERSION (update notifier) ---------- */
   if (p === "/api/version" && m === "GET") {
-    return send(res, 200, { version: APP_VERSION });
+    return send(res, 200, {
+      version: APP_VERSION,
+      short: APP_VERSION_SHORT,
+      started: APP_STARTED_AT,
+      source: process.env.RENDER_GIT_COMMIT ? "render" : "local",
+    });
   }
 
   /* ---------- ADMIN AUTH CHECK ---------- */

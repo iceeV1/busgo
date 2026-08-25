@@ -550,6 +550,8 @@ body {
 .pax-hint.ok { color: var(--green); }
 .pax-hint.warn { color: var(--gold); }
 
+.version-tag { font-size: 0.75rem; letter-spacing: 1px; color: var(--muted); margin-top: 8px; }
+
 /* ================= UPDATE NOTIFIER ================= */
 .update-overlay {
   position: fixed; inset: 0; z-index: 400;
