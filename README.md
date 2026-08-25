@@ -52,3 +52,13 @@ node server.js
 ## เทคโนโลยี
 
 HTML5 · CSS3 · JavaScript (Vanilla) · Node.js (http module ล้วน)
+
+## อัปขึ้นเว็บจริง (Render.com — ฟรี)
+
+1. Push repo นี้ขึ้น GitHub (มีไฟล์ `render.yaml` blueprint เตรียมไว้แล้ว)
+2. ไปที่ [render.com](https://render.com) → สมัคร/ล็อกอิน **ด้วย GitHub**
+3. New + → **Blueprint** → เลือก repo → Render จะอ่าน `render.yaml` อัตโนมัติ
+4. ตั้ง env var `ADMIN_KEY` = รหัสผ่านหลังบ้านที่ต้องการ → Apply
+5. รอ build ~2 นาที → ได้ URL สาธารณะ เช่น `https://busgo-xxxx.onrender.com`
+
+> หมายเหตุ Free tier: เว็บจะ "หลับ" ถ้าไม่มีคนใช้ 15 นาที (เปิดใหม่ใช้เวลาโหลด ~50 วินาที) และไฟล์ `data/db.json` จะรีเซ็ตเมื่อ redeploy

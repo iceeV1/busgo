@@ -1,0 +1,13 @@
+# Render.com Blueprint — deploy อัตโนมัติเมื่อเชื่อม repo นี้
+services:
+  - type: web
+    name: busgo
+    runtime: node
+    plan: free
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: ADMIN_KEY
+        sync: false   # ตั้งรหัสผ่านหลังบ้านเองใน Dashboard (ไม่ hardcode)
