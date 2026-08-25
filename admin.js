@@ -319,7 +319,7 @@ async function checkForUpdate(first = false) {
     if (first) { sessionStorage.setItem(ADMIN_UPDATE_KEY, data.version); }
     const tag = $("adminVersion");
     if (tag) tag.textContent =
-      `BusGo Admin · เวอร์ชัน v${data.short} (${data.source === "render" ? "Render" : "Local"}) · ตรวจสอบล่าสุด ${new Date().toLocaleTimeString("th-TH")}${loaded === data.version ? " · ล่าสุดแล้ว" : ""}`;
+      `BusGo V${data.semver} · build ${data.short} (${data.source === "render" ? "Render" : "Local"}) · ตรวจสอบล่าสุด ${new Date().toLocaleTimeString("th-TH")}${loaded === data.version ? " · ล่าสุดแล้ว" : ""}`;
     if (loaded && loaded !== data.version && !checkForUpdate._shown) {
       checkForUpdate._shown = true;
       toast("มีเวอร์ชันใหม่ของระบบ — แนะนำให้รีเฟรชหน้าเว็บ (F5)");

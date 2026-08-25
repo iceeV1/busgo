@@ -12,6 +12,7 @@ const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const ADMIN_KEY = process.env.ADMIN_KEY || "admin1234";
+const APP_SEMVER = "1.0.0"; // เวอร์ชันระบบ — อัปเกรดครั้งใหญ่ขึ้นเลขนี้ (เช่น 1.1.0, 2.0.0)
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -329,6 +330,7 @@ async function handleApi(req, res, p) {
   if (p === "/api/version" && m === "GET") {
     return send(res, 200, {
       version: APP_VERSION,
+      semver: APP_SEMVER,
       short: APP_VERSION_SHORT,
       started: APP_STARTED_AT,
       source: process.env.RENDER_GIT_COMMIT ? "render" : "local",

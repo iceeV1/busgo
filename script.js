@@ -758,7 +758,7 @@ async function checkForUpdate(first = false) {
     // แสดงเลขเวอร์ชันล่าสุดที่ footer
     const tag = $("versionTag");
     if (tag) tag.textContent =
-      `เวอร์ชัน v${data.short} (${data.source === "render" ? "Render" : "Local"}) · ตรวจสอบล่าสุด ${new Date().toLocaleTimeString("th-TH")} · ล่าสุดแล้ว`;
+      `เวอร์ชัน V${data.semver} · build ${data.short} (${data.source === "render" ? "Render" : "Local"}) · ตรวจสอบล่าสุด ${new Date().toLocaleTimeString("th-TH")} · ล่าสุดแล้ว`;
 
     const loaded = sessionStorage.getItem(UPDATE_KEY);
     if (first) {
@@ -766,7 +766,7 @@ async function checkForUpdate(first = false) {
       return;
     }
     if (loaded && loaded !== data.version) {
-      $("updateFoot").textContent = `BUILD v${data.short} DETECTED ON SERVER`;
+      $("updateFoot").textContent = `BUILD V${data.semver} (${data.short}) DETECTED ON SERVER`;
       $("updateOverlay").classList.remove("hidden");
     }
   } catch {
