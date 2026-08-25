@@ -108,7 +108,12 @@ function sendFile(res, filePath) {
     "Content-Type": MIME[path.extname(full).toLowerCase()] || "application/octet-stream",
     "Cache-Control": "no-cache",
   });
-  fs.createReadStream(full).pipe(res);
+  const stream = fs.createReadStream(full);
+  stream.on("error", (e) => {
+    console.error("[STREAM]", e.message);
+    try { send(res, 500, { error: "File read error" }); } catch {}
+  });
+  stream.pipe(res);
 }
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -327,9 +332,10 @@ async function handleApi(req, res, p) {
 
 /* ================= SERVER ================= */
 const server = http.createServer(async (req, res) => {
-  const p = new URL(req.url, "http://x").pathname;
+  let p = new URL(req.url, "http://x").pathname;
   try {
     if (p.startsWith("/api/")) return await handleApi(req, res, p);
+    if (p.length > 1 && p.endsWith("/")) p = p.replace(/\/+$/, "") || "/"; // รองรับ /admin/
     let file = p === "/" ? "/index.html" : p === "/admin" ? "/admin.html" : p;
     return sendFile(res, path.join(ROOT, file));
   } catch (e) {
@@ -337,6 +343,10 @@ const server = http.createServer(async (req, res) => {
     try { send(res, 500, { error: "Internal Server Error" }); } catch {}
   }
 });
+
+// กัน process ล่มบน cloud (สำคัญมากสำหรับ free tier)
+process.on("uncaughtException", (e) => console.error("[UNCAUGHT]", e.message));
+process.on("unhandledRejection", (e) => console.error("[REJECTION]", e && e.message ? e.message : e));
 
 server.listen(PORT, () => {
   console.log("=========================================");
