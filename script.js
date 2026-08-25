@@ -572,8 +572,8 @@ $("confirmBtn").addEventListener("click", () => {
 });
 
 /* ================= PROMPTPAY QR (มาตรฐาน Thai QR / EMVCo) ================= */
-const PROMPTPAY_ID = "0812345678";      // <-- เปลี่ยนเป็นเบอร์พร้อมเพย์ / เลขบัตรประชาชน 13 หลัก ของบัญชีรับเงินจริง
-const PROMPTPAY_NAME = "BusGo Booking"; // ชื่อร้าน/บัญชีที่แสดงใต้ QR
+const PROMPTPAY_ID = "0996932881";            // เบอร์พร้อมเพย์ของเจ้าของระบบ (ถอดจาก QR กรุงไทย)
+const PROMPTPAY_NAME = "นายอัฐวุฒิ มาตรสมบัติ"; // ชื่อบัญชีที่แสดงใต้ QR ให้ผู้จ่ายตรวจสอบ
 
 function crc16ccitt(str) {
   let crc = 0xFFFF;
