@@ -182,8 +182,14 @@
           <label class="pay-card"><input type="radio" name="payMethod" value="wallet" /><span class="pm-title">e-Wallet</span><span class="pm-sub">TrueMoney, ShopeePay</span></label>
         </div>
         <div id="qrBox" class="qr-box">
-          <div class="qr-fake"></div>
-          <p class="muted small">สแกน QR ด้วยแอปธนาคารเพื่อชำระ <b>฿<span id="payAmount">0</span></b> (ระบบสาธิต)</p>
+          <div class="thai-qr-card">
+            <div class="tqr-head">THAI QR PAYMENT</div>
+            <div class="tqr-promptpay">PromptPay พร้อมเพย์</div>
+            <div id="qrImage" class="tqr-qr"></div>
+            <div class="tqr-amount">฿<span id="qrAmount">0</span></div>
+            <div class="tqr-merchant" id="qrMerchant"></div>
+          </div>
+          <p class="muted small">สแกน QR ด้วยแอปธนาคารเพื่อชำระ <b>฿<span id="payAmount">0</span></b></p>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="backToInfo">← กลับ</button>
@@ -208,7 +214,7 @@
           </div>
           <div class="eticket-tear"></div>
           <div class="eticket-foot">
-            <div id="tkBarcode" class="barcode"></div>
+            <div id="tkQr" class="ticket-qr"></div>
             <div class="muted small">แสดงรหัสนี้แก่พนักงานก่อนขึ้นรถ</div>
           </div>
         </div>
@@ -240,6 +246,7 @@
     </div>
   </footer>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

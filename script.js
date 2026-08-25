@@ -571,14 +571,78 @@ $("confirmBtn").addEventListener("click", () => {
   showStep("stepPay");
 });
 
-/* ---------- Payment ---------- */
+/* ================= PROMPTPAY QR (มาตรฐาน Thai QR / EMVCo) ================= */
+const PROMPTPAY_ID = "0812345678";      // <-- เปลี่ยนเป็นเบอร์พร้อมเพย์ / เลขบัตรประชาชน 13 หลัก ของบัญชีรับเงินจริง
+const PROMPTPAY_NAME = "BusGo Booking"; // ชื่อร้าน/บัญชีที่แสดงใต้ QR
+
+function crc16ccitt(str) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+function tlv(id, value) {
+  return id + String(value.length).padStart(2, "0") + value;
+}
+function buildPromptPayPayload(id, amount) {
+  let target = null;
+  if (/^\d{13}$/.test(id)) {
+    target = tlv("02", id); // เลขบัตรประชาชน
+  } else if (/^0\d{9,10}$/.test(id)) {
+    target = tlv("01", "0066" + id.replace(/^0/, "")); // เบอร์โทร (+66)
+  } else if (/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+$/.test(id)) {
+    target = tlv("03", id); // E-wallet ID
+  } else {
+    return null;
+  }
+  const merchantAccount = tlv("00", "A000000677010111") + target;
+  let p = "";
+  p += tlv("00", "01");                 // Payload Format Indicator
+  p += tlv("01", "12");                 // Dynamic QR (มีจำนวนเงิน)
+  p += tlv("29", merchantAccount);      // Merchant Account - PromptPay
+  p += tlv("53", "764");                // สกุลเงิน THB
+  if (amount > 0) p += tlv("54", amount.toFixed(2));
+  p += tlv("58", "TH");                 // Country
+  p += tlv("62", tlv("01", "BUSGO"));   // Reference
+  p += "6304";
+  return p + crc16ccitt(p);
+}
+function renderPromptPayQR() {
+  const box = $("qrImage");
+  if (!box) return;
+  box.innerHTML = "";
+  const amount = computeTotals().net;
+  $("qrAmount").textContent = amount.toLocaleString();
+  $("qrMerchant").textContent = PROMPTPAY_NAME;
+  const payload = buildPromptPayPayload(PROMPTPAY_ID, amount);
+  if (!payload || typeof QRCode === "undefined") {
+    box.innerHTML = '<span class="muted small">QR ไม่พร้อมใช้งาน (โหลดไลบรารีไม่สำเร็จ)</span>';
+    return;
+  }
+  new QRCode(box, { text: payload, width: 168, height: 168, correctLevel: QRCode.CorrectLevel.M });
+}
+function renderTicketQR(code) {
+  const box = $("tkQr");
+  if (!box) return;
+  box.innerHTML = "";
+  if (typeof QRCode === "undefined") { box.textContent = code; return; }
+  new QRCode(box, { text: code, width: 96, height: 96, correctLevel: QRCode.CorrectLevel.L });
+}
+
+/* ================= PAYMENT ---------- */
 const PAY_LABELS = { promptpay: "QR PromptPay", card: "บัตรเครดิต / เดบิต", wallet: "e-Wallet" };
 function selectedPayMethod() {
   const el = document.querySelector('input[name="payMethod"]:checked');
   return el ? el.value : "promptpay";
 }
 function updatePayUI() {
-  $("qrBox").classList.toggle("hidden", selectedPayMethod() !== "promptpay");
+  const isPromptpay = selectedPayMethod() === "promptpay";
+  $("qrBox").classList.toggle("hidden", !isPromptpay);
+  if (isPromptpay) renderPromptPayQR();
 }
 document.querySelectorAll('input[name="payMethod"]').forEach((r) =>
   r.addEventListener("change", updatePayUI));
@@ -654,6 +718,7 @@ $("payNowBtn").addEventListener("click", async () => {
   $("tkDateTime").textContent = `${fmtDate(booking.date)} · ${bus.depart}`;
   $("tkSeats").textContent = booking.seats.join(", ");
   $("tkPay").textContent = PAY_LABELS[booking.payMethod] || "—";
+  renderTicketQR(booking.code);
   showStep("stepDone");
   showToast("ชำระเงินสำเร็จ! ขอบคุณที่ใช้บริการ BusGo");
   btn.disabled = false;

@@ -283,10 +283,10 @@ body {
 .eticket-tear::before { left: -22px; }
 .eticket-tear::after { right: -22px; }
 .eticket-foot { padding: 14px 18px 18px; text-align: center; }
-.barcode {
-  height: 42px; margin-bottom: 8px;
-  background: repeating-linear-gradient(90deg, #fff 0 2px, transparent 2px 4px, #fff 4px 7px, transparent 7px 9px, #fff 9px 10px, transparent 10px 14px);
-  border-radius: 6px; opacity: .9;
+.ticket-qr {
+  display: flex; align-items: center; justify-content: center;
+  width: 110px; height: 110px; margin: 0 auto 10px;
+  background: #fff; border-radius: 10px; padding: 7px;
 }
 
 /* ================= MY TICKETS ================= */
@@ -532,13 +532,25 @@ body {
   background: rgba(255,255,255,0.04); border: 1px dashed var(--card-border);
   border-radius: 14px;
 }
-.qr-fake {
-  width: 150px; height: 150px; margin: 0 auto 10px; border-radius: 12px;
-  background:
-    conic-gradient(#fff 25%, transparent 0 50%, #fff 0 75%, transparent 0) 0 0/24px 24px,
-    #fff;
-  mask: radial-gradient(circle 12px at center, transparent 98%, #000) ;
+.thai-qr-card {
+  background: #ffffff; color: #0b3a6b;
+  border-radius: 14px; overflow: hidden;
+  max-width: 240px; margin: 0 auto 12px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
+.tqr-head {
+  background: #0b3a6b; color: #fff; padding: 9px 10px;
+  font-weight: 700; letter-spacing: 1.5px; font-size: 0.8rem;
+}
+.tqr-promptpay {
+  display: inline-block; margin: 12px auto 4px;
+  border: 2px solid #0b3a6b; border-radius: 6px;
+  padding: 3px 14px; font-weight: 700; font-size: 0.85rem;
+}
+.tqr-qr { display: flex; justify-content: center; padding: 4px 10px 8px; }
+.tqr-qr img, .tqr-qr canvas { border-radius: 4px; }
+.tqr-amount { font-size: 1.3rem; font-weight: 700; color: #111; }
+.tqr-merchant { font-size: 0.78rem; color: #5a6478; padding-bottom: 14px; }
 .points-bar {
   margin-bottom: 18px; padding: 13px 18px; border-radius: 12px;
   background: linear-gradient(90deg, rgba(52,211,153,.15), rgba(34,211,238,.08));
