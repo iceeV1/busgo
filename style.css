@@ -945,6 +945,24 @@ html:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
 /* ---- ผังที่นั่ง: กว้างขึ้นเล็กน้อย ---- */
 .seat-map { max-width: 348px; gap: 10px; }
 
+/* ================= SEARCH CARD FIX (v1.3.2) =================
+   - ปุ่มค้นหารอบรถอยู่แถวเดียวกับช่องกรอก (grid 7 คอลัมน์ ไม่ตกแถว)
+   - ปุ่มเที่ยวเดียว/ไป-กลับชิดซ้ายตามมาตรฐาน */
+.search-card .trip-pills { justify-content: flex-start; }
+.search-grid { grid-template-columns: 1fr auto 1fr 1fr 1fr 1fr auto; }
+.search-grid .search-btn {
+  align-self: end;
+  height: 44px;
+  padding: 0 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 900px) {
+  .search-grid .search-btn { height: 48px; }
+}
+
+
 
   cursor: pointer;
   margin: 2px 0 10px;
