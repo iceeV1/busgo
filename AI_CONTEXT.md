@@ -26,8 +26,9 @@
 2. `PATCH /api/bookings/:code/cancel`: admin ผ่านได้เลย / ผู้จองต้องส่ง body `{ "phone": "..." }` ให้ตรงเบอร์ผู้จอง (403 ถ้าไม่ตรง)
 3. `clientIp()`: ใช้ `CF-Connecting-IP` เมื่อมาผ่าน CF (host busgo.dpdns.org/www + มี cf-ray) ไม่งั้นใช้ XFF hop สุดท้าย — กันปลอม IP bypass rate limit/lockout
 4. รหัสตั๋วสุ่ม crypto (`BG-` + randomBytes(3).hex) เดาไม่ได้
-5. isAdmin ใช้ timingSafeEqual / มี CSP header / บล็อก serve pss.txt, .env, db.json, dotfiles / path.relative กัน traversal
+5. isAdmin ใช้ timingSafeEqual / มี CSP header / path.relative กัน traversal
 6. script.js: `withPii()` เติมข้อมูลส่วนตัวตั๋วตัวเองจาก localStorage mirror, saveMirror merge PII ไม่ทำลาย
+7. (`d6944f6`) บล็อก serve static ของ server.js, render.yaml, *.md, pss.txt, .env, db.json — โค้ด backend/config ไม่หลุดทางหน้าเว็บ
 
 ## กติกาโปรเจกต์ (ห้ามลืม)
 
