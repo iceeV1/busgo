@@ -30,7 +30,7 @@ function initTimeFields() {
     const mSel = tf.querySelector(".tf-min");
     for (let h = 0; h < 24; h++) hSel.add(new Option(pad2(h), pad2(h)));
     for (let m = 0; m < 60; m += 5) mSel.add(new Option(pad2(m), pad2(m)));
-    const sync = () => { $(hiddenId).value = hSel.value + ":" + mSel.value; };
+    const sync = () => { $(hiddenId).value = hSel.value + ":" + mSel.value; updateDuration(); };
     hSel.addEventListener("change", sync);
     mSel.addEventListener("change", sync);
   });
@@ -42,6 +42,19 @@ function setTimeValue(hiddenId, val) {
   tf.querySelector(".tf-hour").value = pad2(Number(hh) || 0);
   tf.querySelector(".tf-min").value = mm && Number(mm) % 5 === 0 ? pad2(Number(mm)) : "00";
   $(hiddenId).value = tf.querySelector(".tf-hour").value + ":" + tf.querySelector(".tf-min").value;
+  updateDuration();
+}
+
+/* คำนวณระยะเวลาจากเวลาออก/เวลาถึง (ถึงก่อนออก = ข้ามวัน) */
+function updateDuration() {
+  const dep = $("fDepart").value, arr = $("fArrive").value;
+  if (!dep || !arr || !dep.includes(":") || !arr.includes(":")) return;
+  const [dh, dm] = dep.split(":").map(Number);
+  const [ah, am] = arr.split(":").map(Number);
+  let mins = (ah * 60 + am) - (dh * 60 + dm);
+  if (mins <= 0) mins += 1440; /* เวลาถึงไม่หลังเวลาออก → นับเป็นวันถัดไป */
+  const h = Math.floor(mins / 60), m = mins % 60;
+  $("fDuration").value = h > 0 ? `${h} ชม.${m ? ` ${m} นาที` : ""}` : `${m} นาที`;
 }
 
 /* ================= TRAVEL MODE SEGMENTED ================= */

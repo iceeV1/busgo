@@ -260,6 +260,7 @@ body {
   outline: none; transition: border-color .2s, box-shadow .2s;
 }
 .info-form input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,.25); }
+.info-form input[readonly] { opacity: .7; cursor: default; background: rgba(255,255,255,0.04); }
 
 /* ---- Select ในฟอร์ม (ธีมมืด + ลูกศรกำกับ) ---- */
 .info-form select {
