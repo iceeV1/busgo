@@ -65,7 +65,7 @@ async function upSet(key, value) {
   });
 }
 
-function saveDB(db) {
+async function saveDB(db) {
   const json = JSON.stringify(db, null, 2);
   // เขียนไฟล์เสมอ (local ใช้เป็นหลัก / บน cloud ใช้เป็น backup)
   try {
@@ -77,7 +77,7 @@ function saveDB(db) {
     console.error("[FILE]", e.message);
   }
   if (upEnabled()) {
-    upSet(UP_KEY, json).catch((e) => console.error("[UPSTASH SET]", e.message));
+    try { await upSet(UP_KEY, json); } catch (e) { console.error("[UPSTASH SET]", e.message); }
   }
 }
 const SAMPLE_EXTRA = [
@@ -109,7 +109,7 @@ async function loadDB() {
       const raw = await upGet(UP_KEY);
       if (raw) {
         const db = JSON.parse(raw);
-        if (normalize(db)) saveDB(db);
+        if (normalize(db)) await saveDB(db);
         return db;
       }
       console.log("[UPSTASH] ยังไม่มีข้อมูล — สร้างฐานข้อมูลใหม่");
@@ -119,7 +119,7 @@ async function loadDB() {
   }
   try {
     const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
-    if (normalize(db)) saveDB(db);
+    if (normalize(db)) await saveDB(db);
     return db;
   } catch {
     const db = {
@@ -129,7 +129,7 @@ async function loadDB() {
       seededExtra: true,
       seq: 1,
     };
-    saveDB(db);
+    await saveDB(db);
     return db;
   }
 }
@@ -212,7 +212,7 @@ async function handleApi(req, res, p) {
       price: Number(b.price), seats: TYPE_INFO[b.type].seats,
     };
     db.buses.push(bus);
-    saveDB(db);
+    await saveDB(db);
     return send(res, 201, bus);
   }
 
@@ -235,14 +235,14 @@ async function handleApi(req, res, p) {
         duration: String(b.duration).trim(), type: b.type,
         price: Number(b.price), seats: TYPE_INFO[b.type].seats,
       });
-      saveDB(db);
+      await saveDB(db);
       return send(res, 200, db.buses[idx]);
     }
 
     if (m === "DELETE") {
       if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
       const removed = db.buses.splice(idx, 1)[0];
-      saveDB(db);
+      await saveDB(db);
       return send(res, 200, { deleted: removed });
     }
   }
@@ -305,7 +305,7 @@ async function handleApi(req, res, p) {
       createdAt: new Date().toISOString(),
     };
     db.bookings.push(booking);
-    saveDB(db);
+    await saveDB(db);
     return send(res, 201, { booking });
   }
 
@@ -319,13 +319,13 @@ async function handleApi(req, res, p) {
       if (bk.status !== "active") return send(res, 409, { error: "รายการนี้ถูกยกเลิกไปแล้ว" });
       bk.status = "cancelled";
       bk.cancelledAt = new Date().toISOString();
-      saveDB(db);
+      await saveDB(db);
       return send(res, 200, { booking: bk });
     }
     if (!mb[2] && m === "DELETE") {
       if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
       db.bookings = db.bookings.filter((x) => x.code !== code);
-      saveDB(db);
+      await saveDB(db);
       return send(res, 200, { deleted: code });
     }
   }
@@ -347,7 +347,7 @@ async function handleApi(req, res, p) {
     if ((db.promos || []).some((x) => x.code === code)) return send(res, 409, { error: "มีโค้ดนี้อยู่แล้ว" });
     const promo = { code, percent, active: true };
     db.promos.push(promo);
-    saveDB(db);
+    await saveDB(db);
     return send(res, 201, promo);
   }
 
@@ -360,13 +360,13 @@ async function handleApi(req, res, p) {
     if (mp[2] && m === "PATCH") {
       if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
       pr.active = !pr.active;
-      saveDB(db);
+      await saveDB(db);
       return send(res, 200, pr);
     }
     if (!mp[2] && m === "DELETE") {
       if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
       db.promos = db.promos.filter((x) => x.code !== code);
-      saveDB(db);
+      await saveDB(db);
       return send(res, 200, { deleted: code });
     }
   }
