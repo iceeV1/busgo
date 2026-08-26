@@ -56,8 +56,26 @@ function addMyCode(code) {
   s.unshift(code);
   localStorage.setItem(LS_MY, JSON.stringify(s.slice(0, 50)));
 }
+function loadMirror() {
+  try { return JSON.parse(localStorage.getItem(LS_MIRROR) || "[]"); } catch { return []; }
+}
+/* Server ส่งรายการจองมาแบบไม่มี PII (ชื่อ/เบอร์/หมายเหตุ) กันข้อมูลรั่ว
+   ตั๋วของเราเติมข้อมูลส่วนตัวกลับจาก localStorage ของเครื่องตัวเองได้ */
+function withPii(bk) {
+  if (bk.name !== undefined) return bk;
+  const o = loadMirror().find((x) => x.code === bk.code);
+  return o ? { ...o, ...bk } : bk;
+}
 function saveMirror() {
-  localStorage.setItem(LS_MIRROR, JSON.stringify(bookings));
+  try {
+    const old = loadMirror();
+    /* ถ้า record จาก server ถูกซ่อน PII ให้ผสมข้อมูลส่วนตัวเดิมกลับเข้าไปด้วย */
+    const merged = bookings.map((bk) =>
+      bk.name === undefined ? { ...(old.find((x) => x.code === bk.code) || {}), ...bk } : bk
+    );
+    for (const o of old) if (!merged.some((x) => x.code === o.code)) merged.push(o);
+    localStorage.setItem(LS_MIRROR, JSON.stringify(merged));
+  } catch {}
 }
 
 /* โหลดข้อมูลจากหลังบ้าน (server.js) — fallback เป็น localStorage ถ้าออฟไลน์ */
@@ -741,15 +759,14 @@ function updateBadge() {
 }
 
 function renderTickets() {
-  const mine = bookings.filter((bk) => myCodes().includes(bk.code));
+  const mine = bookings.filter((bk) => myCodes().includes(bk.code)).map(withPii);
   const wrap = $("ticketList");
   const has = mine.length > 0;
 
-  // แต้มสะสม: 1 แต้มทุก 100 บาท (นับจากตั๋ว active ของเบอร์โทรเดียวกัน)
-  const phones = [...new Set(mine.map((b) => b.phone))];
-  const pts = bookings
-    .filter((b) => b.status === "active" && phones.includes(b.phone))
-    .reduce((s, b) => s + Math.floor(b.total / 100), 0);
+  // แต้มสะสม: 1 แต้มทุก 100 บาท (นับจากตั๋ว active ของตั๋วที่เราจอง)
+  const pts = mine
+    .filter((b) => b.status === "active")
+    .reduce((s, b) => s + Math.floor((b.total || 0) / 100), 0);
   const pb = $("pointsBar");
   pb.classList.toggle("hidden", pts === 0);
   if (pts > 0) {
@@ -786,21 +803,33 @@ function renderTickets() {
 }
 
 async function cancelBooking(code) {
-  const bk = bookings.find((b) => b.code === code);
+  let bk = bookings.find((b) => b.code === code) || loadMirror().find((b) => b.code === code);
   if (!bk || bk.status !== "active") return;
   if (!confirm(`ยืนยันการยกเลิกคิว ${code}?\nที่นั่ง ${bk.seats.join(", ")} จะถูกปล่อยให้ผู้โดยสารท่านอื่น`)) return;
 
-  bk.status = "cancelled";
-  bk.cancelledAt = new Date().toISOString();
+  /* Server กำหนดให้ยืนยันเบอร์โทรผู้จอง (กันคนแปลกหน้ายกเลิกตั๋วคนอื่น)
+     ถ้าเครื่องนี้จองเองข้อมูลจะมีอยู่แล้ว — ถ้าไม่มีให้กรอกเบอร์ยืนยัน */
+  let phone = withPii(bk).phone;
+  if (!phone) {
+    phone = (prompt("ยืนยันเบอร์โทรศัพท์ผู้จอง:") || "").replace(/[-\s]/g, "");
+    if (!phone) return;
+  }
 
   if (serverOnline) {
     try {
-      const res = await fetch(`/api/bookings/${encodeURIComponent(code)}/cancel`, { method: "PATCH" });
+      const res = await fetch(`/api/bookings/${encodeURIComponent(code)}/cancel`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      if (res.status === 403) { showToast("เบอร์โทรไม่ตรงกับผู้จอง — ยกเลิกไม่สำเร็จ", true); return; }
       if (!res.ok) throw new Error();
     } catch {
       showToast("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ยกเลิกในเครื่องชั่วคราว", true);
     }
   }
+  bk.status = "cancelled";
+  bk.cancelledAt = new Date().toISOString();
   saveMirror();
   updateBadge();
   renderTickets();

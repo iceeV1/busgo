@@ -5,6 +5,7 @@
    ============================================================ */
 const http = require("http");
 const fs = require("fs");
+const crypto = require("crypto");
 const path = require("path");
 
 const PORT = process.env.PORT || 3000;
@@ -12,7 +13,7 @@ const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const ADMIN_KEY = process.env.ADMIN_KEY || "admin1234";
-const APP_SEMVER = "1.0.0"; // เวอร์ชันระบบ — อัปเกรดครั้งใหญ่ขึ้นเลขนี้ (เช่น 1.1.0, 2.0.0)
+const APP_SEMVER = "1.0.1"; // เวอร์ชันระบบ — security patch (PII leak, cancel auth, IP spoofing)
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -34,11 +35,23 @@ const SECURITY_HEADERS = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "Content-Security-Policy":
+    "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
 };
 
 function clientIp(req) {
-  const xf = req.headers["x-forwarded-for"]; // Render/Cloudflare ใส่มาให้
-  if (xf) return String(xf).split(",")[0].trim();
+  /* ป้องกันการปลอม X-Forwarded-For (ช่องโหว่เดิม: ใช้ค่าแรกของแซก ซึ่ง client ตั้งเองได้
+     ทำให้ bypass rate limit + admin lockout ได้ทุกตัว)
+     1) ผ่าน Cloudflare (โดเมนหลัก): CF ตั้ง cf-connecting-ip เองเสมอ ปลอมไม่ได้
+     2) เข้า Render ตรง: ใช้ hop สุดท้ายของ XFF ซึ่ง proxy ที่เชื่อถือได้ append ท้ายแซก */
+  const host = String(req.headers.host || "").toLowerCase();
+  const viaCF = !!req.headers["cf-ray"] && (host === "busgo.dpdns.org" || host === "www.busgo.dpdns.org");
+  if (viaCF && req.headers["cf-connecting-ip"]) return String(req.headers["cf-connecting-ip"]).trim();
+  const xf = req.headers["x-forwarded-for"];
+  if (xf) {
+    const hops = String(xf).split(",").map((s) => s.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
+  }
   return req.socket.remoteAddress || "unknown";
 }
 
@@ -204,7 +217,13 @@ function send(res, status, obj) {
 }
 function sendFile(res, filePath) {
   const full = path.normalize(filePath);
-  if (!full.startsWith(ROOT)) return send(res, 403, { error: "Forbidden" });
+  /* กัน path traversal: ต้องอยู่ใน ROOT เท่านั้น (เช็คด้วย relative กันกรณี prefix ซ้ำ เช่น /app vs /app2) */
+  const rel = path.relative(ROOT, full);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return send(res, 403, { error: "Forbidden" });
+  /* บล็อกไฟล์ sensitive ไม่ให้ถูก serve เป็น static เด็ดขาด */
+  const base = path.basename(full).toLowerCase();
+  if (base === "pss.txt" || base.endsWith(".env") || base.startsWith(".") || full === DB_PATH)
+    return send(res, 403, { error: "Forbidden" });
   if (!fs.existsSync(full) || !fs.statSync(full).isFile()) return send(res, 404, { error: "Not Found" });
   res.writeHead(200, {
     ...SECURITY_HEADERS,
@@ -226,7 +245,12 @@ function readBody(req) {
     req.on("error", reject);
   });
 }
-function isAdmin(req) { return req.headers["x-admin-key"] === ADMIN_KEY; }
+/* เทียบรหัสแบบ timing-safe กัน timing attack */
+function isAdmin(req) {
+  const given = Buffer.from(String(req.headers["x-admin-key"] || ""));
+  const want = Buffer.from(ADMIN_KEY);
+  return given.length === want.length && crypto.timingSafeEqual(given, want);
+}
 
 function validateBus(b) {
   if (!b || typeof b !== "object") return "ข้อมูลไม่ถูกต้อง";
@@ -304,6 +328,19 @@ async function handleApi(req, res, p) {
   /* ---------- BOOKINGS ---------- */
   if (p === "/api/bookings" && m === "GET") {
     const list = [...db.bookings].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    /* [FIXED] เดิมเปิด PII ทั้งหมดให้คนทั่วไป (ชื่อ/เบอร์โทร/หมายเหตุ) — ตอนนี้ non-admin
+       เห็นเฉพาะส่วนจำเป็นต่อผังที่นั่งและสถานะตั๋ว ข้อมูลส่วนตัวเห็นได้ปุ่มยั้ง admin */
+    if (!isAdmin(req)) {
+      return send(res, 200, list.map((b) => ({
+        code: b.code,
+        busId: b.busId,
+        date: b.date,
+        seats: b.seats,
+        status: b.status,
+        total: b.total,
+        createdAt: b.createdAt,
+      })));
+    }
     return send(res, 200, list);
   }
 
@@ -345,7 +382,7 @@ async function handleApi(req, res, p) {
     const discount = promo ? Math.round((gross * promo.percent) / 100) : 0;
 
     const booking = {
-      code: "BG-" + Date.now().toString(36).toUpperCase().slice(-4) + "-" + String(db.seq++ % 1000).padStart(3, "0"),
+      code: "BG-" + crypto.randomBytes(3).toString("hex").toUpperCase(), // สุ่มแบบ unguessable กันเดารหัสตั๋ว
       busId: bus.id,
       date: body.date,
       seats,
@@ -371,6 +408,14 @@ async function handleApi(req, res, p) {
 
     if (mb[2] && m === "PATCH") {
       if (bk.status !== "active") return send(res, 409, { error: "รายการนี้ถูกยกเลิกไปแล้ว" });
+      /* [FIXED] เดิมใครรู้รหัสตั๋วก็ยกเลิกได้ — ตอนนี้ admin ผ่านได้เลย
+         ส่วนผู้จองตัวจริงต้องส่งเบอร์โทรมายืนยันให้ตรงกับรายการ */
+      if (!isAdmin(req)) {
+        let body = {};
+        try { body = await readBody(req); } catch {}
+        const givenPhone = String(body.phone || "").replace(/[-\s]/g, "");
+        if (givenPhone !== bk.phone) return send(res, 403, { error: "เบอร์โทรศัพท์ไม่ตรงกับผู้จอง" });
+      }
       bk.status = "cancelled";
       bk.cancelledAt = new Date().toISOString();
       await saveDB(db);
@@ -492,7 +537,7 @@ server.listen(PORT, () => {
   console.log("  BusGo Server กำลังทำงาน");
   console.log(`  หน้าเว็บหลัก : http://localhost:${PORT}`);
   console.log(`  หลังบ้าน     : http://localhost:${PORT}/admin`);
-  console.log(`  Admin Key    : ${ADMIN_KEY}`);
+  console.log(`  Admin Key    : ${ADMIN_KEY.slice(0, 3)}****** (ซ่อนบางส่วน)`);
   console.log(`  ฐานข้อมูล    : ${DB_PATH}`);
   console.log("=========================================");
 });

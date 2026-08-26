@@ -31,9 +31,9 @@ node server.js
 |--------|----------|----------|
 | GET | `/api/buses` | รายการเที่ยวรถ |
 | POST / PUT / DELETE | `/api/buses/:id` | จัดการเที่ยวรถ (ต้องมี `x-admin-key`) |
-| GET | `/api/bookings` | รายการการจองทั้งหมด |
+| GET | `/api/bookings` | รายการการจอง (admin: ข้อมูลเต็ม / public: ซ่อนชื่อ–เบอร์–หมายเหตุ กันข้อมูลรั่ว) |
 | POST | `/api/bookings` | จองตั๋ว (ตรวจที่นั่งซ้ำอัตโนมัติ) |
-| PATCH | `/api/bookings/:code/cancel` | ยกเลิกการจอง |
+| PATCH | `/api/bookings/:code/cancel` | ยกเลิกการจอง (admin ผ่านได้เลย / ผู้จองต้องส่ง `{ "phone": "..." }` ยืนยัน) |
 | DELETE | `/api/bookings/:code` | ลบการจองถาวร (ต้องมี `x-admin-key`) |
 
 ## โครงสร้างไฟล์

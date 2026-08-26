@@ -386,4 +386,8 @@ checkForUpdate(true);
   }
 })();
 
+/* กัน form reload หน้า (เดิมใช้ onsubmit inline ซึ่งถูก CSP บล็อก) */
+const _busFormEl = document.getElementById("busForm");
+if (_busFormEl) _busFormEl.addEventListener("submit", (e) => e.preventDefault());
+
 
