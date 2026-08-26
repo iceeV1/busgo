@@ -107,22 +107,11 @@ async function loadData() {
 })();
 
 /* Deterministic pseudo-random occupied seats per bus+date */
-function hashStr(s) {
-  let h = 7;
-  for (let i = 0; i < s.length; i++) h = ((h * 31) + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-function seededRand(seed) {
-  let s = seed % 2147483647;
-  if (s <= 0) s += 2147483646;
-  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
-}
+/* [v1.1.3] ตัดระบบ "ที่นั่งถูกจองปลอม" ออก — เดิมสุ่มที่นั่ง occupied ฝั่ง client
+   ทำให้ผังที่นั่ง/% ว่างไม่ตรงกับความจริงที่เซิร์ฟเวอร์รู้ (server ไม่รู้จักที่นั่งพวกนี้)
+   ตอนนี้แสดงเฉพาะที่นั่งที่ถูกจองจริงจาก /api/bookings เท่านั้น */
 function getOccupied(busId, date, total) {
-  const rnd = seededRand(hashStr(busId + "|" + date));
-  const count = Math.floor(total * (0.2 + rnd() * 0.45));
-  const set = new Set();
-  while (set.size < count) set.add(1 + Math.floor(rnd() * total));
-  return set;
+  return new Set();
 }
 function getUserTaken(busId, date) {
   const set = new Set();
@@ -159,7 +148,14 @@ function showToast(msg, isError = false) {
   showToast._timer = setTimeout(() => t.classList.add("hidden"), 2800);
 }
 function genCode() {
-  return "BG-" + Date.now().toString(36).toUpperCase().slice(-4) + "-" + Math.floor(Math.random() * 900 + 100);
+  /* [v1.1.2 FIX] ใช้เฉพาะโหมดออฟไลน์ — ต้องอยู่ฟอร์แมตเดียวกับฝั่งเซิร์ฟเวอร์
+     (^BG-[0-9A-F]{6,12}) มิฉะนั้น PATCH /cancel กับ GET /search จะโดน 400
+     "รูปแบบรหัสตั๋วไม่ถูกต้อง" เมื่อเอาตั๋ว offline ไปใช้กับ API */
+  const buf = new Uint8Array(4);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) crypto.getRandomValues(buf);
+  else for (let i = 0; i < buf.length; i++) buf[i] = Math.floor(Math.random() * 256);
+  const hex = Array.from(buf).map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+  return "BG-" + hex;
 }
 function findBus(id) { return BUSES.find((b) => b.id === id); }
 
@@ -601,7 +597,7 @@ function crc16ccitt(str) {
 function tlv(id, value) {
   return id + String(value.length).padStart(2, "0") + value;
 }
-function buildPromptPayPayload(id, amount) {
+function buildPromptPayPayload(id, amount, ref) {
   let target = null;
   if (/^\d{13}$/.test(id)) {
     target = tlv("02", id); // เลขบัตรประชาชน
@@ -620,7 +616,7 @@ function buildPromptPayPayload(id, amount) {
   p += tlv("53", "764");                // สกุลเงิน THB
   if (amount > 0) p += tlv("54", amount.toFixed(2));
   p += tlv("58", "TH");                 // Country
-  p += tlv("62", tlv("01", "BUSGO"));   // Reference
+  p += tlv("62", tlv("01", String(ref || "BUSGO").replace(/[^A-Za-z0-9]/g, "").slice(0, 25) || "BUSGO"));   // Reference
   p += "6304";
   return p + crc16ccitt(p);
 }
@@ -628,10 +624,14 @@ function renderPromptPayQR() {
   const box = $("qrImage");
   if (!box) return;
   box.innerHTML = "";
-  const amount = computeTotals().net;
+  const t = computeTotals();
+  const amount = t.net;
   $("qrAmount").textContent = amount.toLocaleString();
   $("qrMerchant").textContent = PROMPTPAY_NAME;
-  const payload = buildPromptPayPayload(PROMPTPAY_ID, amount);
+  /* [v1.1.3] Reference field (TLV 62) = รหัสเที่ยวรถ + YYMMDD ของวันเดินทาง
+     เพื่อให้ตรวจสอบรายการเงินเข้ากลับมาที่การจองได้ (จำกัด A-Z a-z 0-9, สูงสุด 25 ตัว) */
+  const ref = `${t.bus.id}${String(state.currentDate || "").replace(/-/g, "").slice(2)}`;
+  const payload = buildPromptPayPayload(PROMPTPAY_ID, amount, ref);
   if (!payload || typeof QRCode === "undefined") {
     box.innerHTML = '<span class="muted small">QR ไม่พร้อมใช้งาน (โหลดไลบรารีไม่สำเร็จ)</span>';
     return;
@@ -683,6 +683,7 @@ $("payNowBtn").addEventListener("click", async () => {
   };
 
   let booking = null;
+  let serverConfirmed = false; // [v1.1.3] แยกกรณี "จองสำเร็จบนเซิร์ฟเวอร์จริง" กับ "บันทึกออฟไลน์"
   if (serverOnline) {
     try {
       const res = await fetch("/api/bookings", {
@@ -698,12 +699,15 @@ $("payNowBtn").addEventListener("click", async () => {
         return;
       }
       booking = data.booking;
+      serverConfirmed = true;
       bookings.unshift(booking);
     } catch {
-      showToast("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — บันทึกแบบออฟไลน์", true);
+      showToast("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้", true);
     }
   }
   if (!booking) {
+    /* [v1.1.3] โหมดออฟไลน์ — เตือนชัดว่านี่เป็นการบันทึกในเครื่องเท่านั้น
+       เซิร์ฟเวอร์ยังไม่รู้จักตั๋วนี้ ที่นั่งยังไม่ถูกล็อก และการชำระเงินยังไม่ถูกบันทึก */
     booking = {
       code: genCode(),
       busId: bus.id,
@@ -733,7 +737,13 @@ $("payNowBtn").addEventListener("click", async () => {
   $("tkPay").textContent = PAY_LABELS[booking.payMethod] || "—";
   renderTicketQR(booking.code);
   showStep("stepDone");
-  showToast("ชำระเงินสำเร็จ! ขอบคุณที่ใช้บริการ BusGo");
+  /* [v1.1.3] ข้อความต้องตรงความจริง: server-confirmed = "ชำระเงินสำเร็จ"
+     ส่วน offline = เตือนว่าเซิร์ฟเวอร์ยังไม่รับการจอง (ไม่ปลอมข้อความสำเร็จ) */
+  if (serverConfirmed) {
+    showToast("ชำระเงินสำเร็จ! ขอบคุณที่ใช้บริการ BusGo");
+  } else {
+    showToast("บันทึกในเครื่องชั่วคราวเท่านั้น — เซิร์ฟเวอร์ยังไม่รับการจองนี้ กรุณากลับมาออนไลน์แล้วยืนยันอีกครั้ง", true);
+  }
   btn.disabled = false;
   btn.textContent = "ชำระเงินและยืนยันการจอง";
 });
@@ -770,7 +780,7 @@ function renderTickets() {
   const pb = $("pointsBar");
   pb.classList.toggle("hidden", pts === 0);
   if (pts > 0) {
-    pb.innerHTML = `คะแนนสะสมของคุณ: <b>${pts} แต้ม</b> <span class="muted">(สะสม 1 แต้มทุกทุกการจอง 100 ฿ แลกส่วนลดได้ในการจองครั้งถัดไป)</span>`;
+    pb.innerHTML = `คะแนนสะสมของคุณ: <b>${pts} แต้ม</b> <span class="muted">(สะสม 1 แต้มทุกการจอง 100 ฿ แลกส่วนลดได้ในการจองครั้งถัดไป)</span>`;
   }
 
   $("ticketEmpty").classList.toggle("hidden", has);
@@ -921,10 +931,16 @@ async function cancelBooking(code) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
       });
+      /* [v1.1.2 FIX] เดิมจับเฉพาะ 403 แต่ error อื่น (429 rate limit, 500 ฯลฯ)
+         หลุดไปโค้ดด้านล่างแล้ว set สถานะ cancelled ในเครื่อง ทั้งที่เซิร์ฟเวอร์
+         ไม่ได้ยอมรับการยกเลิก — ตอนนี้ทุก response ที่ไม่ ok ให้หยุดทันที
+         และโชว์สาเหตุจริงจากเซิร์ฟเวอร์ */
+      let data = {};
+      try { data = await res.json(); } catch {}
       if (res.status === 403) { showToast("เบอร์โทรไม่ตรงกับผู้จอง — ยกเลิกไม่สำเร็จ", true); return; }
-      if (!res.ok) throw new Error();
+      if (!res.ok) { showToast(data.error || "ยกเลิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง", true); return; }
     } catch {
-      showToast("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ยกเลิกในเครื่องชั่วคราว", true);
+      showToast("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — สถานะจริงยังไม่ถูกยกเลิก กรุณาลองใหม่เมื่อออนไลน์", true);
     }
   }
   bk.status = "cancelled";

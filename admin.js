@@ -29,7 +29,9 @@ function initTimeFields() {
     const hSel = tf.querySelector(".tf-hour");
     const mSel = tf.querySelector(".tf-min");
     for (let h = 0; h < 24; h++) hSel.add(new Option(pad2(h), pad2(h)));
-    for (let m = 0; m < 60; m += 5) mSel.add(new Option(pad2(m), pad2(m)));
+    /* [v1.1.3] นาทีเลือกได้ทุกนาที (เดิม step 5 นาที ทำให้เวลาที่ไม่ใช่เศษ 5
+       เช่น 08:03 ถูกปัดเป็น 08:00 เงียบๆ เมื่อแก้ไขแล้ว save) */
+    for (let m = 0; m < 60; m++) mSel.add(new Option(pad2(m), pad2(m)));
     const sync = () => { $(hiddenId).value = hSel.value + ":" + mSel.value; updateDuration(); };
     hSel.addEventListener("change", sync);
     mSel.addEventListener("change", sync);
@@ -40,7 +42,7 @@ function setTimeValue(hiddenId, val) {
   if (!tf) return;
   const [hh, mm] = String(val || "08:00").split(":");
   tf.querySelector(".tf-hour").value = pad2(Number(hh) || 0);
-  tf.querySelector(".tf-min").value = mm && Number(mm) % 5 === 0 ? pad2(Number(mm)) : "00";
+  tf.querySelector(".tf-min").value = mm && Number(mm) >= 0 && Number(mm) <= 59 ? pad2(Number(mm)) : "00";
   $(hiddenId).value = tf.querySelector(".tf-hour").value + ":" + tf.querySelector(".tf-min").value;
   updateDuration();
 }

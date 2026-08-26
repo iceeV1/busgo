@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.1.1"; // เวอร์ชันระบบ — Security Hardening (Path traversal & rate limit fixes)
+const APP_SEMVER = "1.1.3"; // เวอร์ชันระบบ — Patch: ตัดที่นั่งปลอม, offline flow ชัดเจน, PromptPay ref, time picker ทุกนาที
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();

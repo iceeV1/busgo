@@ -52,6 +52,26 @@
     - Admin UI: เพิ่มแท็บ "สแกนตั๋ว / เช็คอิน" รองรับการยิงบาร์โค้ด QR หรือพิมพ์รหัสตั๋ว แสดงการ์ดรายละเอียดตั๋วครบถ้วนพร้อมปุ่มเช็คอิน และตารางประวัติเช็คอินขึ้นรถล่าสุด
     - Public UI: หน้า "ตั๋วของฉัน" แสดงสถานะ "ขึ้นรถแล้ว" (`status-checkedin`) พร้อมเวลาขึ้นรถ
 15. ค้างต่อ: เพิ่ม Lua script บน Upstash กัน double-booking ข้าม instance, ย้าย rate-limit/lockout state ลง Redis (อยู่รอด redeploy)
+## งานที่ทำแล้ว (v1.1.2 — code review patch)
+
+16. **Fix `cancelBooking()` ใน script.js**: เดิมถ้าเซิร์ฟเวอร์ตอบ error อื่นที่ไม่ใช่ 403 (เช่น 429 rate limit / 500) โค้ดจะหลุดไป set สถานะ `cancelled` ในเครื่องต่อ ทั้งที่เซิร์ฟเวอร์ไม่ได้ยอมรับ → ตอนนี้ response ไม่ ok ใดๆ จะหยุดทันที + โชว์สาเหตุจริงจากเซิร์ฟเวอร์
+17. **Fix `genCode()` offline ใน script.js**: เดิมสร้างรหัส `BG-XXXX-123` ซึ่งไม่ผ่าน regex server `^BG-[0-9A-F]{6,12}$` → ตั๋ว offline ใช้ API cancel/search ไม่ได้ → ตอนนี้สุ่ม hex 4 ไบต์ (crypto.getRandomValues) ให้อยู่ฟอร์แมตเดียวกับเซิร์ฟเวอร์
+18. แก้ typo ข้อความแต้มสะสม ("ทุกทุก" -> "ทุก") — bump APP_SEMVER เป็น **1.1.2**
+
+## งานที่ทำแล้ว (v1.1.3 — แก้ design limitation ครบทั้ง 4 ข้อ)
+
+19. **ตัด "ที่นั่งถูกจองปลอม" ออก** (`getOccupied` ใน script.js คืน Set ว่าง, ลบ hashStr/seededRand) — ผังที่นั่ง/% ว่างตอนนี้สะท้อนเฉพาะการจองจริงจาก server
+20. **Flow offline โปร่งใส** (`payNowBtn`): เพิ่ม `serverConfirmed` flag — จองสำเร็จบน server = "ชำระเงินสำเร็จ", offline/ฟอล์ = "บันทึกในเครื่องชั่วคราวเท่านั้น เซิร์ฟเวอร์ยังไม่รับการจอง" (ไม่ปลอมข้อความสำเร็จอีก)
+21. **PromptPay TLV 62 ref** = รหัสเที่ยวรถ + YYMMDD วันเดินทาง (เช่น B01260826) ช่วย reconcile เงินเข้าที่รายการ; sanitize A-Z a-z 0-9 max 25 ตัว fallback "BUSGO"
+22. **Admin time picker**: นาทีเลือกได้ทุกนาที 0-59 (เดิม step 5 ทำให้เวลา 08:03 ถูกปัด 08:00 ตอน save), `setTimeValue` รับนาทีใดๆ ได้ — bump APP_SEMVER เป็น **1.1.3**
+
+## สิ่งที่ review แล้วพบว่าโอเค (ไม่แก้): security server แน่น (timingSafeEqual, fail-fast, traversal whitelist, rate limit ครบ, write mutex), XSS ปิดหมดด้วย esc(), server recalc ยอดเงินเอง
+
+## Design limitation ที่เหลือ
+
+- (แก้หมดแล้วใน v1.1.2-v1.1.3) เหลือ item 15: Lua script Upstash + rate-limit state ลง Redis
+
+
 
 ## กติกาโปรเจกต์ (ห้ามลืม)
 
