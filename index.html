@@ -37,26 +37,30 @@
 
   <section class="hero">
     <div class="container">
-      <!-- [v1.3.0] ภาพประกอบ: รถบัสเคลื่อนที่ (SVG inline, มี animation ลอย) -->
-      <svg class="hero-art" viewBox="0 0 180 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M6 30h30M2 42h24M10 54h20" stroke="url(#heroGrad)" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
-        <rect x="50" y="12" width="116" height="46" rx="12" fill="url(#heroGrad)"/>
-        <rect x="61" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
-        <rect x="89" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
-        <rect x="117" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
-        <rect x="146" y="24" width="13" height="12" rx="2.5" fill="#eef1ff" opacity="0.55"/>
-        <rect x="50" y="45" width="116" height="5" fill="#0b1020" opacity="0.28"/>
-        <circle cx="74" cy="60" r="9" fill="#1a2240" stroke="#eef1ff" stroke-width="3"/>
-        <circle cx="142" cy="60" r="9" fill="#1a2240" stroke="#eef1ff" stroke-width="3"/>
-        <defs>
-          <linearGradient id="heroGrad" x1="50" y1="12" x2="166" y2="58" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#6366f1"/>
-            <stop offset="1" stop-color="#a855f7"/>
-          </linearGradient>
-        </defs>
-      </svg>
-      <h1 class="hero-title">เดินทางทั่วไทย <span class="gradient-text">ง่าย ไว สบายใจ</span></h1>
-      <p class="hero-sub">ค้นหารอบรถบัส จองคิว เลือกที่นั่ง และรับ e-Ticket ได้ในไม่กี่คลิก</p>
+      <!-- [v1.3.1] ภาพประกอบ: รถบัสเล็ก + ข้อความ เรียงแนวนอน -->
+      <div class="hero-flex">
+        <svg class="hero-art" viewBox="0 0 180 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M6 30h30M2 42h24M10 54h20" stroke="url(#heroGrad)" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+          <rect x="50" y="12" width="116" height="46" rx="12" fill="url(#heroGrad)"/>
+          <rect x="61" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
+          <rect x="89" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
+          <rect x="117" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
+          <rect x="146" y="24" width="13" height="12" rx="2.5" fill="#eef1ff" opacity="0.55"/>
+          <rect x="50" y="45" width="116" height="5" fill="#0b1020" opacity="0.28"/>
+          <circle cx="74" cy="60" r="9" fill="#1a2240" stroke="#eef1ff" stroke-width="3"/>
+          <circle cx="142" cy="60" r="9" fill="#1a2240" stroke="#eef1ff" stroke-width="3"/>
+          <defs>
+            <linearGradient id="heroGrad" x1="50" y1="12" x2="166" y2="58" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6366f1"/>
+              <stop offset="1" stop-color="#a855f7"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="hero-text">
+          <h1 class="hero-title">เดินทางทั่วไทย <span class="gradient-text">ง่าย ไว สบายใจ</span></h1>
+          <p class="hero-sub">ค้นหารอบรถบัส จองคิว เลือกที่นั่ง และรับ e-Ticket ได้ในไม่กี่คลิก</p>
+        </div>
+      </div>
 
       <form id="searchForm" class="search-card glass">
         <div class="trip-pills">

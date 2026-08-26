@@ -901,6 +901,51 @@ html:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
   .theme-toggle:hover { transform: none; }
 }
 
+/* ================= LAYOUT v1.3.1 — เลย์เอาท์มาตรฐานเว็บจองตั๋ว ================= */
+
+/* ---- Header: โลโก้ซ้าย / เมนูกลาง / ปุ่มขวา ---- */
+.header-inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  height: 68px;
+}
+.header-inner .nav { justify-self: center; }
+.header-inner .auth-area { justify-self: end; margin-left: 0; }
+@media (max-width: 900px) {
+  .header-inner { display: flex; flex-wrap: wrap; height: auto; padding: 10px 0; row-gap: 8px; }
+  .header-inner .auth-area { order: 2; margin-left: auto; width: auto; justify-content: flex-end; }
+  .header-inner .nav { order: 3; width: 100%; justify-content: center; }
+}
+
+/* ---- Hero: รถบัสเล็ก วางเรียงแนวนอนกับข้อความ ---- */
+.hero { padding: 36px 0 22px; }
+.hero-flex {
+  display: flex; align-items: center; justify-content: center;
+  gap: 34px; text-align: left; margin-bottom: 4px;
+}
+.hero-flex .hero-text { max-width: 540px; }
+.hero-flex .hero-sub { margin-bottom: 0; }
+.hero-art { width: 128px; margin: 0; animation-duration: 4.5s; }
+@media (max-width: 760px) {
+  .hero-flex { flex-direction: column; gap: 8px; text-align: center; }
+  .hero-flex .hero-text { max-width: none; }
+  .hero-art { width: 92px; }
+}
+
+/* ---- การ์ดรถบัส: สูงเท่ากัน ปุ่มจองชิดขอบล่าง ---- */
+.bus-card { display: flex; flex-direction: column; }
+.bus-card .bus-card-bottom {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px dashed var(--card-border);
+}
+.bus-grid, .ticket-grid { grid-auto-rows: 1fr; }
+
+/* ---- ผังที่นั่ง: กว้างขึ้นเล็กน้อย ---- */
+.seat-map { max-width: 348px; gap: 10px; }
+
+
   cursor: pointer;
   margin: 2px 0 10px;
 }
