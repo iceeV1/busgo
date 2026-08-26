@@ -22,7 +22,6 @@ const TYPE_INFO = {
   air: { seats: 44 },
   eco: { seats: 48 },
 };
-const MODES = ["bus", "train", "ferry"];
 const PAY_METHODS = ["promptpay", "card", "wallet"];
 
 const DEFAULT_BUSES = [
@@ -80,25 +79,16 @@ async function saveDB(db) {
     try { await upSet(UP_KEY, json); } catch (e) { console.error("[UPSTASH SET]", e.message); }
   }
 }
-const SAMPLE_EXTRA = [
-  { id: "TR01", from: "กรุงเทพฯ", to: "เชียงใหม่", depart: "18:10", arrive: "07:15", duration: "13 ชม. 05 นาที", type: "air", mode: "train", price: 881, seats: 40 },
-  { id: "TR02", from: "กรุงเทพฯ", to: "หาดใหญ่", depart: "17:30", arrive: "09:20", duration: "15 ชม. 50 นาที", type: "eco", mode: "train", price: 474, seats: 48 },
-  { id: "FR01", from: "กระบี่", to: "เกาะพีพี", depart: "09:00", arrive: "10:30", duration: "1 ชม. 30 นาที", type: "air", mode: "ferry", price: 450, seats: 44 },
-  { id: "FR02", from: "ดอนสัก", to: "เกาะสมุย", depart: "08:00", arrive: "11:00", duration: "3 ชม.", type: "eco", mode: "ferry", price: 200, seats: 48 },
-];
-
 const DEFAULT_PROMOS = [{ code: "WELCOME10", percent: 10, active: true }];
 
+/* ระบบรองรับเฉพาะรถบัส — ตัดรอบรถไฟ/เรือเฟอร์รี่เก่าออกจากฐานข้อมูลอัตโนมัติ */
 function normalize(db) {
   let changed = false;
   (db.buses || []).forEach((b) => { if (!b.mode) { b.mode = "bus"; changed = true; } });
+  const before = (db.buses || []).length;
+  db.buses = (db.buses || []).filter((b) => (b.mode || "bus") === "bus");
+  if (db.buses.length !== before) changed = true;
   if (!Array.isArray(db.promos)) { db.promos = JSON.parse(JSON.stringify(DEFAULT_PROMOS)); changed = true; }
-  if (!db.seededExtra) {
-    const have = new Set((db.buses || []).map((b) => b.id));
-    SAMPLE_EXTRA.forEach((s) => { if (!have.has(s.id)) db.buses.push({ ...s }); });
-    db.seededExtra = true;
-    changed = true;
-  }
   return changed;
 }
 
@@ -123,10 +113,9 @@ async function loadDB() {
     return db;
   } catch {
     const db = {
-      buses: DEFAULT_BUSES.map((b) => ({ ...b, mode: "bus" })).concat(SAMPLE_EXTRA.map((s) => ({ ...s }))),
+      buses: DEFAULT_BUSES.map((b) => ({ ...b, mode: "bus" })),
       bookings: [],
       promos: JSON.parse(JSON.stringify(DEFAULT_PROMOS)),
-      seededExtra: true,
       seq: 1,
     };
     await saveDB(db);
@@ -182,7 +171,7 @@ function validateBus(b) {
   if (!/^\d{2}:\d{2}$/.test(b.arrive || "")) return "เวลาถึงไม่ถูกต้อง";
   if (!String(b.duration || "").trim()) return "กรุณาระบุระยะเวลาเดินทาง";
   if (!TYPE_INFO[b.type]) return "ประเภทรถต้องเป็น vip / air / eco";
-  if (b.mode && !MODES.includes(b.mode)) return "ชนิดการเดินทางต้องเป็น bus / train / ferry";
+  if (b.mode && b.mode !== "bus") return "ระบบนี้รองรับเฉพาะรถบัส";
   const price = Number(b.price);
   if (!Number.isFinite(price) || price < 0 || price > 100000) return "ราคาไม่ถูกต้อง";
   return null;
@@ -208,7 +197,7 @@ async function handleApi(req, res, p) {
       from: String(b.from).trim(), to: String(b.to).trim(),
       depart: b.depart, arrive: b.arrive,
       duration: String(b.duration).trim(), type: b.type,
-      mode: MODES.includes(b.mode) ? b.mode : "bus",
+      mode: "bus",
       price: Number(b.price), seats: TYPE_INFO[b.type].seats,
     };
     db.buses.push(bus);

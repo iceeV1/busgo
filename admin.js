@@ -57,17 +57,6 @@ function updateDuration() {
   $("fDuration").value = h > 0 ? `${h} ชม.${m ? ` ${m} นาที` : ""}` : `${m} นาที`;
 }
 
-/* ================= TRAVEL MODE SEGMENTED ================= */
-function syncModeSeg() {
-  const v = $("fMode").value || "bus";
-  $("modeSeg").querySelectorAll(".seg-btn").forEach((b) =>
-    b.classList.toggle("active", b.dataset.mode === v));
-}
-document.querySelectorAll("#modeSeg .seg-btn").forEach((b) =>
-  b.addEventListener("click", () => {
-    $("fMode").value = b.dataset.mode;
-    syncModeSeg();
-  }));
 initTimeFields();
 setTimeValue("fDepart", "08:00");
 setTimeValue("fArrive", "12:00");
@@ -273,13 +262,10 @@ function openBusForm(editId) {
     $("fFrom").value = bus.from; $("fTo").value = bus.to;
     setTimeValue("fDepart", bus.depart); setTimeValue("fArrive", bus.arrive);
     $("fDuration").value = bus.duration; $("fType").value = bus.type;
-    $("fMode").value = bus.mode || "bus";
-    syncModeSeg();
     $("fPrice").value = bus.price;
   } else {
     $("busForm").reset();
     setTimeValue("fDepart", "08:00"); setTimeValue("fArrive", "12:00");
-    syncModeSeg();
   }
   $("busModal").classList.remove("hidden");
 }
@@ -295,7 +281,7 @@ $("busSave").addEventListener("click", async () => {
     from: $("fFrom").value, to: $("fTo").value,
     depart: $("fDepart").value, arrive: $("fArrive").value,
     duration: $("fDuration").value, type: $("fType").value,
-    mode: $("fMode").value,
+    mode: "bus",
     price: Number($("fPrice").value),
   };
   try {

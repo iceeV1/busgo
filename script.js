@@ -172,16 +172,6 @@ function initFilters() {
   $("dateInput").min = new Date().toISOString().slice(0, 10);
   $("returnDateInput").min = state.date;
 
-  // แท็บชนิดการเดินทาง
-  document.querySelectorAll("#modeTabs .mode-tab").forEach((tb) =>
-    tb.addEventListener("click", () => {
-      document.querySelectorAll("#modeTabs .mode-tab").forEach((x) =>
-        x.classList.toggle("active", x === tb));
-      state.mode = tb.dataset.mode;
-      renderBuses();
-      renderPopular();
-    }));
-
   // เที่ยวเดียว / ไป-กลับ
   document.querySelectorAll('input[name="tripType"]').forEach((r) =>
     r.addEventListener("change", () => {
@@ -373,7 +363,7 @@ function renderBuses() {
   $("resultsTitle").textContent =
     state.from || state.to
       ? `${state.from || "ทุกต้นทาง"} → ${state.to || "ทุกปลายทาง"}${roundTrip ? " (ไป–กลับ)" : ""}`
-      : `ทุกเส้นทาง (${state.mode === "train" ? "รถไฟ" : state.mode === "ferry" ? "เรือเฟอร์รี่" : "รถบัส"})`;
+      : `ทุกเส้นทาง (รถบัส)`;
 
   let html = "";
   if (roundTrip) {

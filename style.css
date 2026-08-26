@@ -294,23 +294,6 @@ body {
 .tf-colon { color: var(--muted); font-weight: 700; }
 .tf-suffix { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
 
-/* ---- ชนิดการเดินทาง: ปุ่มแบบมีไอคอน ---- */
-.seg-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
-.seg-btn {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 11px 6px; border-radius: 12px; cursor: pointer;
-  background: rgba(255,255,255,0.07); border: 1px solid var(--card-border);
-  color: var(--muted); font-family: inherit; font-size: 0.85rem; font-weight: 500;
-  transition: all .2s ease; white-space: nowrap;
-}
-.seg-btn svg { flex-shrink: 0; }
-.seg-btn:hover { color: #fff; border-color: rgba(139,92,246,.5); transform: translateY(-1px); }
-.seg-btn.active {
-  background: linear-gradient(90deg, var(--primary), var(--primary-2));
-  color: #fff; border-color: transparent;
-  box-shadow: 0 8px 20px rgba(124,58,237,.4);
-}
-
 /* ================= E-TICKET ================= */
 .eticket {
   background: linear-gradient(150deg, rgba(99,102,241,.18), rgba(168,85,247,.12));
@@ -482,20 +465,6 @@ body {
 }
 
 /* ================= V2 FEATURES (BOT-style) ================= */
-.mode-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
-.mode-tab {
-  padding: 10px 22px; border-radius: 999px; cursor: pointer;
-  background: rgba(255,255,255,0.06); border: 1px solid var(--card-border);
-  color: var(--muted); font-family: inherit; font-size: 0.92rem; font-weight: 500;
-  transition: all .2s ease;
-}
-.mode-tab:hover { color: #fff; border-color: rgba(139,92,246,.5); }
-.mode-tab.active {
-  background: linear-gradient(90deg, var(--primary), var(--primary-2));
-  color: #fff; border-color: transparent;
-  box-shadow: 0 8px 20px rgba(124,58,237,.4);
-}
-
 .search-card { display: flex; flex-direction: column; gap: 12px; }
 .trip-pills { display: flex; gap: 8px; }
 .trip-pills label { cursor: pointer; }
