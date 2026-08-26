@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.0.2"; // เวอร์ชันระบบ — security patch (write mutex, fail-fast key, cancel brute-force guard)
+const APP_SEMVER = "1.0.3"; // เวอร์ชันระบบ — Phase 1.5 (cross-device ticket lookup by code+phone)
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -364,6 +364,29 @@ async function handleApi(req, res, p) {
       })));
     }
     return send(res, 200, list);
+  }
+
+  /* [v1.0.3] ค้นตั๋วข้ามเครื่อง (ไม่ต้อง login / ไม่ต้อง localStorage)
+     — ใช้เมื่อผู้จองเปิดจากเครื่องอื่น หรือเคลียร์ browser cache
+     — ต้องรู้ทั้ง code + เบอร์โทร (เบอร์เป็น shared secret เพิ่มเติม)
+     — คืนเฉพาะ public view (ไม่มี PII เพิ่ม) และเฉพาะรายการที่ยัง active หรือ cancelled (ไม่คืนเก่าเกิน 90 วัน) */
+  if (p === "/api/bookings/search" && m === "GET") {
+    const u = new URL(req.url, "http://x");
+    const code = String(u.searchParams.get("code") || "").trim().toUpperCase();
+    const phone = String(u.searchParams.get("phone") || "").replace(/[-\s]/g, "");
+    if (!/^BG-[0-9A-F]{6,12}$/.test(code)) return send(res, 400, { error: "รูปแบบรหัสตั๋วไม่ถูกต้อง" });
+    if (!/^0\d{8,9}$/.test(phone)) return send(res, 400, { error: "รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง" });
+    const hit = db.bookings.find((b) => b.code === code && b.phone === phone);
+    if (!hit) return send(res, 404, { error: "ไม่พบรายการจองที่ตรงกัน" });
+    return send(res, 200, {
+      code: hit.code,
+      busId: hit.busId,
+      date: hit.date,
+      seats: hit.seats,
+      status: hit.status,
+      total: hit.total,
+      createdAt: hit.createdAt,
+    });
   }
 
   if (p === "/api/bookings" && m === "POST") {
