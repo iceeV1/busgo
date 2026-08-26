@@ -67,8 +67,6 @@
 
 ## สิ่งที่ review แล้วพบว่าโอเค (ไม่แก้): security server แน่น (timingSafeEqual, fail-fast, traversal whitelist, rate limit ครบ, write mutex), XSS ปิดหมดด้วย esc(), server recalc ยอดเงินเอง
 
-## Design limitation ที่เหลือ
-
 ## งานที่ทำแล้ว (v1.2.0 — ระบบสมาชิก login/logout + admin session)
 
 23. **ระบบสมาชิกผู้โดยสาร**: `POST /api/auth/register|login|logout`, `GET /api/auth/me` — password เก็บ scrypt+salt per-user, session token randomBytes(32) เก็บใน `db.sessions` (TTL member 7 วัน), rate limit auth: 10/5นาที/IP, anti-enumeration (401 message เดียวกัน)
@@ -78,8 +76,19 @@
 27. **บั๊กที่จับได้ระหว่างทำ**: /api/admin/login เคยเทียบรหัสจาก header (ซึ่ง client ส่งใน body.key) → เทียบ body.key timing-safe ถูกต้อง
 28. **Smoke test local ผ่าน 12/12** (register/dup/login/wrong-pass/me/mine/admin-login/logout) — bump APP_SEMVER เป็น **1.2.0**
 
+## งานที่ทำแล้ว (v1.2.1 — login ด้วยชื่อบัญชีแทนอีเมล)
 
-- (แก้หมดแล้วใน v1.1.2-v1.1.3) เหลือ item 15: Lua script Upstash + rate-limit state ลง Redis
+28a. register/login ใช้ `name` เป็นตัวระบุบัญชี (เก็บ `nameLower` unique + backfill ให้ user เก่าใน normalize); ตัดช่องอีเมลออกจากฟอร์ม; publicSelf ไม่ส่ง email — bump **1.2.1**
+
+## งานที่ทำแล้ว (v1.2.2 — Firebase Realtime Database)
+
+29. **โหมดเก็บข้อมูลบน Firebase RTDB** (env `FIREBASE_DB_URL` + `FIREBASE_DB_SECRET`): ลำดับอ่าน Firebase → Upstash → local; ครั้งแรกที่ Firebase ว่างจะดึงข้อมูลจากแหล่งสำรองแล้ว sync ขึ้นไปอัตโนมัติ; saveDB เขียนทั้ง Firebase + Upstash + local file พร้อมกัน
+30. `ensureArrays()` กัน RTDB ตัด empty array ทิ้ง + แปลง object-index กลับเป็น array ใช้ได้เสมอ
+31. จุดประสงค์: อาจารย์เปิด Firebase Console แล้วเห็นข้อมูลทั้งหมดแบบสด (users/bookings/buses/promos) ตามโจทย์ส่งงาน — **secret เก็บเฉพาะ env บน Render ห้ามขึ้น repo**; smoke test ผ่าน (register/booking ขึ้น Firebase จริง, empty-array purge ไม่พัง) — bump **1.2.2**
+
+## Design limitation ที่เหลือ
+
+- เหลือ item 15: Lua script Upstash + rate-limit state ลง Redis; การถอด secret Firebase จากแชทเก่าไป regenerate ใน Firebase console ถ้าต้องการความปลอดภัยสูงสุด
 
 
 

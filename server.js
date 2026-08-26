@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.2.1"; // เวอร์ชันระบบ — Patch: เปลี่ยน login สมาชิกจากอีเมลเป็นชื่อบัญชี (nameLower)
+const APP_SEMVER = "1.2.2"; // เวอร์ชันระบบ — Patch: เพิ่มโหมดเก็บข้อมูลบน Firebase Realtime Database (REST, ไม่ใช้ npm)
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -156,9 +156,47 @@ async function saveDB(db) {
   } catch (e) {
     console.error("[FILE]", e.message);
   }
+  if (fbEnabled()) {
+    try { await fbPut(json); } catch (e) { console.error("[FIREBASE PUT]", e.message); }
+  }
   if (upEnabled()) {
     try { await upSet(UP_KEY, json); } catch (e) { console.error("[UPSTASH SET]", e.message); }
   }
+}
+
+/* ================= FIREBASE REALTIME DATABASE (v1.2.2) =================
+   โหมด 0: มี env FIREBASE_DB_URL + FIREBASE_DB_SECRET → เก็บบน Firebase
+   (อาจารย์/เจ้าของเปิด Firebase Console แล้วเห็นข้อมูลทั้งหมดแบบสด)
+   ใช้ REST API ผ่าน fetch ล้วน — ไม่ต้องลง npm */
+const FB_URL = (process.env.FIREBASE_DB_URL || "").trim().replace(/\/+$/, "");
+const FB_SECRET = process.env.FIREBASE_DB_SECRET || "";
+const fbEnabled = () => Boolean(FB_URL && FB_SECRET);
+
+async function fbGet() {
+  const r = await fetch(`${FB_URL}/.json?auth=${FB_SECRET}`);
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const t = await r.text();
+  return t === "null" ? null : t;
+}
+async function fbPut(json) {
+  const r = await fetch(`${FB_URL}/.json?auth=${FB_SECRET}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: json,
+  });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+}
+/* RTDB ลบ key ที่เป็นค่าว่างทิ้ง (empty array จะหาย) และอาจคืน array เป็น object
+   เมื่อ index ไม่ต่อเนื่อง — ฟังก์ชันนี้ปรับให้กลับเป็น array ใช้งานได้เสมอ (in-memory) */
+function ensureArrays(db) {
+  const toArr = (v) => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.keys(v).sort((a, b) => a - b).map((k) => v[k]) : []);
+  db.buses = toArr(db.buses);
+  db.bookings = toArr(db.bookings);
+  db.users = toArr(db.users);
+  db.sessions = toArr(db.sessions);
+  db.promos = toArr(db.promos);
+  if (!db.promos.length) db.promos = JSON.parse(JSON.stringify(DEFAULT_PROMOS));
+  db.buses.forEach((b) => { if (!b.mode) b.mode = "bus"; });
 }
 const DEFAULT_PROMOS = [{ code: "WELCOME10", percent: 10, active: true }];
 
@@ -182,36 +220,63 @@ function normalize(db) {
 }
 
 async function loadDB() {
-  // โหมดคลาวด์: ดึงจาก Upstash ก่อนเสมอ
+  /* [v1.2.2] ลำดับการอ่าน: Firebase (ถ้าตั้งค่า) → Upstash → ไฟล์ local
+     ครั้งแรกที่ Firebase ว่าง จะดึงข้อมูลเดิมจากแหล่งสำรองแล้ว sync ขึ้น Firebase ให้อัตโนมัติ */
+  if (fbEnabled()) {
+    try {
+      const raw = await fbGet();
+      if (raw) {
+        const db = JSON.parse(raw);
+        ensureArrays(db);
+        return db;
+      }
+      console.log("[FIREBASE] ยังไม่มีข้อมูล — ดึงจากแหล่งสำรองแล้วจะ sync ขึ้น Firebase");
+    } catch (e) {
+      console.error("[FIREBASE GET]", e.message, "→ ใช้แหล่งสำรองชั่วคราว");
+    }
+  }
+  let db = null;
+  // โหมดคลาวด์: ดึงจาก Upstash
   if (upEnabled()) {
     try {
       const raw = await upGet(UP_KEY);
       if (raw) {
-        const db = JSON.parse(raw);
+        db = JSON.parse(raw);
         if (normalize(db)) await saveDB(db);
-        return db;
+      } else {
+        console.log("[UPSTASH] ยังไม่มีข้อมูล — สร้างฐานข้อมูลใหม่");
       }
-      console.log("[UPSTASH] ยังไม่มีข้อมูล — สร้างฐานข้อมูลใหม่");
     } catch (e) {
       console.error("[UPSTASH GET]", e.message, "→ ใช้ไฟล์ local ชั่วคราว");
     }
   }
-  try {
-    const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
-    if (normalize(db)) await saveDB(db);
-    return db;
-  } catch {
-    const db = {
-      buses: DEFAULT_BUSES.map((b) => ({ ...b, mode: "bus" })),
-      bookings: [],
-      promos: JSON.parse(JSON.stringify(DEFAULT_PROMOS)),
-      users: [],
-      sessions: [],
-      seq: 1,
-    };
-    await saveDB(db);
-    return db;
+  // โหมดไฟล์ local
+  if (!db) {
+    try {
+      db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
+      if (normalize(db)) await saveDB(db);
+    } catch {
+      db = {
+        buses: DEFAULT_BUSES.map((b) => ({ ...b, mode: "bus" })),
+        bookings: [],
+        promos: JSON.parse(JSON.stringify(DEFAULT_PROMOS)),
+        users: [],
+        sessions: [],
+        seq: 1,
+      };
+      await saveDB(db);
+    }
   }
+  // sync ข้อมูลชุดแรกขึ้น Firebase (ครั้งเดียวตอน Firebase ยังว่าง)
+  if (fbEnabled() && db) {
+    try {
+      await fbPut(JSON.stringify(db));
+      console.log("[FIREBASE] sync ข้อมูลเริ่มต้นสำเร็จ");
+    } catch (e) {
+      console.error("[FIREBASE PUT]", e.message);
+    }
+  }
+  return db;
 }
 
 /* ================= WRITE MUTEX (v1.0.2) =================
