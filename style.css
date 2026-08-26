@@ -3,7 +3,7 @@
   --bg: #0b1020;
   --bg-soft: #11172e;
   --card: var(--glass-1);
-  --card-border: var(--card-border);
+  --card-border: rgba(255, 255, 255, 0.12);
   --text: #eef1ff;
   --muted: #97a0c3;
   --primary: #6366f1;
@@ -900,6 +900,52 @@ html:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
   .hero-art { animation: none; }
   .theme-toggle:hover { transform: none; }
 }
+
+/* ================= LIGHT THEME HARDENING (v1.3.3) =================
+   สีตัวหนังสือระบุตรง ๆ ไม่พึ่งการ inherit จาก var เพียงชั้นเดียว
+   กันกรณีตัวแปรบางตัว resolve ผิดทำให้ตัวหนังสือขาวบนพื้นขาว */
+html[data-theme="light"] body,
+html[data-theme="light"] .hero-title,
+html[data-theme="light"] .hero-sub,
+html[data-theme="light"] .route-name,
+html[data-theme="light"] .time,
+html[data-theme="light"] .nav-link,
+html[data-theme="light"] .btn-ghost,
+html[data-theme="light"] .chip,
+html[data-theme="light"] .swap-btn,
+html[data-theme="light"] .close-btn,
+html[data-theme="light"] .seat,
+html[data-theme="light"] .search-field select,
+html[data-theme="light"] .search-field input,
+html[data-theme="light"] .info-form input,
+html[data-theme="light"] .info-form select,
+html[data-theme="light"] .time-field select,
+html[data-theme="light"] .filter-row input,
+html[data-theme="light"] .filter-row select,
+html[data-theme="light"] .login-card input,
+html[data-theme="light"] .promo-input-row input,
+html[data-theme="light"] .my-ticket .tk-info b,
+html[data-theme="light"] .my-ticket .tk-route,
+html[data-theme="light"] .empty-state h3,
+html[data-theme="light"] .stat-chip b,
+html[data-theme="light"] .results-header h2,
+html[data-theme="light"] .section-title,
+html[data-theme="light"] .route-chip,
+html[data-theme="light"] .pm-title,
+html[data-theme="light"] .bus-card,
+html[data-theme="light"] .my-ticket,
+html[data-theme="light"] .data-table td,
+html[data-theme="light"] .btn-sm.btn-ghosty {
+  color: #1a2340;
+}
+html[data-theme="light"] .search-field input::placeholder,
+html[data-theme="light"] .info-form input::placeholder,
+html[data-theme="light"] .promo-input-row input::placeholder,
+html[data-theme="light"] .lookupCode::placeholder,
+html[data-theme="light"] #lookupPhone::placeholder {
+  color: #8b93ab;
+}
+
 
 /* ================= LAYOUT v1.3.1 — เลย์เอาท์มาตรฐานเว็บจองตั๋ว ================= */
 
