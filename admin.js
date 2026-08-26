@@ -365,10 +365,13 @@ async function checkForUpdate(first = false) {
       `BusGo V${data.semver} · build ${data.short} (${data.source === "render" ? "Render" : "Local"}) · ตรวจสอบล่าสุด ${new Date().toLocaleTimeString("th-TH")}${loaded === data.version ? " · ล่าสุดแล้ว" : ""}`;
     if (loaded && loaded !== data.version && !checkForUpdate._shown) {
       checkForUpdate._shown = true;
-      toast("มีเวอร์ชันใหม่ของระบบ — แนะนำให้รีเฟรชหน้าเว็บ (F5)");
+      const foot = $("adminUpdateFoot");
+      if (foot) foot.textContent = `BUILD V${data.semver} (${data.short}) DETECTED ON SERVER`;
+      $("adminUpdateOverlay").classList.remove("hidden");
     }
   } catch {}
 }
+$("adminUpdateReloadBtn").addEventListener("click", () => location.reload());
 setInterval(checkForUpdate, 60000);
 checkForUpdate(true);
 

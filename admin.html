@@ -143,6 +143,18 @@
     </div>
 
     <div id="toast" class="toast hidden"></div>
+
+    <!-- UPDATE NOTIFIER -->
+    <div class="update-overlay hidden" id="adminUpdateOverlay">
+      <div class="update-card">
+        <div class="update-icon"><span class="update-glyph">&#10227;</span></div>
+        <h3>ตรวจพบการอัปเดตใหม่!</h3>
+        <p>ระบบมีการอัปเดตเวอร์ชันใหม่ เพื่อให้ข้อมูลการจองและสถิติเป็นปัจจุบันที่สุด กรุณาโหลดหน้าเว็บใหม่อีกครั้ง</p>
+        <button type="button" class="btn btn-primary update-btn" id="adminUpdateReloadBtn">โหลดซ้ำเลย</button>
+        <div class="update-sub">ใช้เวลา / รีเฟรชซ้ำเดิม</div>
+        <div id="adminUpdateFoot" class="update-foot">BUILD ARTIFACT DETECTED ON SERVER</div>
+      </div>
+    </div>
   </main>
 
   <div class="container">
