@@ -1140,6 +1140,16 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) checkForUpdate();
 });
 
+/* ================= THEME TOGGLE (v1.3.0) ================= */
+const themeBtn = $("themeToggle");
+if (themeBtn) {
+  themeBtn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("busgo_theme", next); } catch {}
+  });
+}
+
 /* ================= INIT ================= */
 initFilters();
 initAuth().then(() => syncMineTickets());

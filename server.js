@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.2.2"; // เวอร์ชันระบบ — Patch: เพิ่มโหมดเก็บข้อมูลบน Firebase Realtime Database (REST, ไม่ใช้ npm)
+const APP_SEMVER = "1.3.0"; // เวอร์ชันระบบ — Minor: Light/Dark mode สลับได้ + favicon + hero art + ระบบธีม CSS variable
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();

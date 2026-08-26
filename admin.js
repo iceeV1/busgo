@@ -554,6 +554,13 @@ $("prAdd").addEventListener("click", async () => {
   }
 });
 
+/* ================= THEME TOGGLE (v1.3.0) ================= */
+$("themeToggle").addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("busgo_theme", next); } catch {}
+});
+
 /* ================= UPDATE NOTIFIER (admin) ================= */
 const ADMIN_UPDATE_KEY = "busgo_admin_loaded_version";
 async function checkForUpdate(first = false) {

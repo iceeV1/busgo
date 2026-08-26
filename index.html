@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BusGo — จองตั๋วรถบัสออนไลน์</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="/theme-boot.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -17,8 +19,12 @@
         <button class="nav-link active" data-tab="schedules">ตารางเดินรถ</button>
         <button class="nav-link" data-tab="tickets">ตั๋วของฉัน <span id="ticketBadge" class="badge-count hidden">0</span></button>
       </nav>
-      <!-- [v1.2.0] สมาชิก: ปุ่มเข้าสู่ระบบ / กล่องผู้ใช้ + logout -->
+      <!-- [v1.3.0] สมาชิก: ปุ่มเข้าสู่ระบบ / กล่องผู้ใช้ + logout + สลับธีม -->
       <div class="auth-area">
+        <button class="theme-toggle" id="themeToggle" type="button" title="สลับโหมดสว่าง/มืด" aria-label="สลับโหมดสว่าง/มืด">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8z"/></svg>
+        </button>
         <button class="btn btn-ghost btn-sm auth-btn" id="authBtn">เข้าสู่ระบบ / สมัครสมาชิก</button>
         <div id="userBox" class="user-box hidden">
           <span class="user-dot"></span>
@@ -31,6 +37,24 @@
 
   <section class="hero">
     <div class="container">
+      <!-- [v1.3.0] ภาพประกอบ: รถบัสเคลื่อนที่ (SVG inline, มี animation ลอย) -->
+      <svg class="hero-art" viewBox="0 0 180 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M6 30h30M2 42h24M10 54h20" stroke="url(#heroGrad)" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+        <rect x="50" y="12" width="116" height="46" rx="12" fill="url(#heroGrad)"/>
+        <rect x="61" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
+        <rect x="89" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
+        <rect x="117" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
+        <rect x="146" y="24" width="13" height="12" rx="2.5" fill="#eef1ff" opacity="0.55"/>
+        <rect x="50" y="45" width="116" height="5" fill="#0b1020" opacity="0.28"/>
+        <circle cx="74" cy="60" r="9" fill="#1a2240" stroke="#eef1ff" stroke-width="3"/>
+        <circle cx="142" cy="60" r="9" fill="#1a2240" stroke="#eef1ff" stroke-width="3"/>
+        <defs>
+          <linearGradient id="heroGrad" x1="50" y1="12" x2="166" y2="58" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#6366f1"/>
+            <stop offset="1" stop-color="#a855f7"/>
+          </linearGradient>
+        </defs>
+      </svg>
       <h1 class="hero-title">เดินทางทั่วไทย <span class="gradient-text">ง่าย ไว สบายใจ</span></h1>
       <p class="hero-sub">ค้นหารอบรถบัส จองคิว เลือกที่นั่ง และรับ e-Ticket ได้ในไม่กี่คลิก</p>
 

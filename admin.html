@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BusGo Admin — หลังบ้าน</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="/theme-boot.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -28,6 +30,10 @@
       <div class="logo">Bus<span class="logo-accent">Go</span><span class="admin-tag">ADMIN</span></div>
       <div class="nav">
         <a href="/" class="nav-link" style="text-decoration:none">← หน้าเว็บหลัก</a>
+        <button class="theme-toggle" id="themeToggle" type="button" title="สลับโหมดสว่าง/มืด" aria-label="สลับโหมดสว่าง/มืด">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8z"/></svg>
+        </button>
         <button class="nav-link" id="logoutBtn">ออกจากระบบ</button>
       </div>
     </div>
