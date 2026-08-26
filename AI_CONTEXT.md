@@ -90,6 +90,21 @@
 
 - เหลือ item 15: Lua script Upstash + rate-limit state ลง Redis; การถอด secret Firebase จากแชทเก่าไป regenerate ใน Firebase console ถ้าต้องการความปลอดภัยสูงสุด
 
+## งานที่ทำแล้ว (v1.3.x — ธีม + ตกแต่ง + แก้บั๊กจอขาว)
+
+32. **ระบบธีม Light/Dark** (v1.3.0): แปลงสี hardcoded เป็น CSS variable system ทั้งหน้าหลัก+admin, ปุ่มสลับ ☀️/🌙, จำค่า localStorage, theme-boot.js กัน FOUC, `?theme=light|dark` ทาง URL, favicon.svg ใหม่ + รถบัส SVG ใน hero
+33. **บั๊กใหญ่ที่จับได้**: สคริปต์แปลงสีทำ `style.css` ขาดวงเล็บปิด 1 ตัวที่ `.remember-row` → CSS หลังบรรทัดนั้นถูกกลืนทั้งหมด → ธีม/เลย์เอาต์ไม่ทำงาน, จอขาวตัวหนังสือขาว (v1.3.4 แก้ + เขียน checker วงเล็บ) — บทเรียน: แก้ CSS ด้วยสคริปต์ต้องตรวจสมดุลวงเล็บ + เรนเดอร์ภาพจริงเสมอ
+34. **Cache-bust ด้วย query string** `?v=<semver>` ทุก static file (style/script/admin.js ใน index.html + admin.html) — เปลี่ยนเวอร์ชันทุกครั้งที่แก้ไฟล์เหล่านี้ กัน CDN/เบราว์เซอร์ cache เก่า
+35. เลย์เอาต์ v1.3.1–v1.3.2: header 3 ส่วน, hero รถเล็ก 128px, การ์ดสูงเท่ากัน, ปุ่มค้นหาแถวเดียวกับช่องกรอก
+
+## งานที่ทำแล้ว (v1.4.0 — Mobile-first UI)
+
+36. **แถบเมนูล่างแบบแอป** `.tabbar` (≤760px): 3 ปุ่ม data-tab (ตารางเดินรถ/ตั๋วของฉัน+badge/ค้นตั๋ว) ใช้ระบบ `data-tab` เดิม, badge sync ผ่าน `.js-tab-badge`, ปุ่มค้นตั๋ว scroll ไปฟอร์ม lookup + focus
+37. โมดัลเป็น bottom-sheet (keyframes `slideUp` เพิ่มใหม่), ช่องกรอก 16px กัน iOS zoom, ฟอร์มค้นหา 2 คอลัมน์ ⇄ หมุนกลาง, header มือถือแถวเดียว, toast เหนือแถบล่าง, /admin แท็บเลื่อนแนวนอน + ช่องสแกนเต็มกว้าง
+38. Defensive: `overflow-x: clip` + `min-width: 0` บน grid children, `.login-card` max-width `min(380px, 100vw-28px)`
+39. CSP `frame-ancestors 'self'` (เดิม 'none') เพื่อทดสอบด้วย iframe 390px — เครื่องมือ: headless Chrome Windows บังคับความกว้างขั้นต่ำ **500px** แม้ `--window-size=390` → ต้องทดสอบมือถือด้วย iframe จำลอง
+40. Deploy ยืนยัน: build `121646a`, production serve `.tabbar` + `?v=1.4.0` แล้ว — **เหลือ user เปิดบนมือถือจริงเช็คความรู้สึกใช้งานเอง**
+
 
 
 ## กติกาโปรเจกต์ (ห้ามลืม)
