@@ -69,6 +69,16 @@
 
 ## Design limitation ที่เหลือ
 
+## งานที่ทำแล้ว (v1.2.0 — ระบบสมาชิก login/logout + admin session)
+
+23. **ระบบสมาชิกผู้โดยสาร**: `POST /api/auth/register|login|logout`, `GET /api/auth/me` — password เก็บ scrypt+salt per-user, session token randomBytes(32) เก็บใน `db.sessions` (TTL member 7 วัน), rate limit auth: 10/5นาที/IP, anti-enumeration (401 message เดียวกัน)
+24. **จองแบบล็อกอิน**: POST /api/bookings ผูก `booking.userId` อัตโนมัติ; `GET /api/bookings?mine=1` (ต้องมี x-session) คืนตั๋วตัวเองพร้อม PII เต็ม
+25. **Frontend หน้าหลัก**: navbar ปุ่ม "เข้าสู่ระบบ/สมัครสมาชิก" → modal login/register (#authModal); prefill ชื่อ-เบอร์จากโปรไฟล์ตอนจอง; syncMineTickets() ดึงตั๋วจากบัญชี (`mine=1`) มาแสดงใน "ตั๋วของฉัน"; token เก็บ localStorage `busgo_member_token`
+26. **Admin auth ยกระดับ**: `POST /api/admin/login {key, remember}` → session token 8 ชม. / 30 วัน (remember) — admin.js ส่ง `x-session` แทน key ตรง; isAdmin ยอมรับทั้ง session token และ x-admin-key เดิม (backward compat กับ curl); admin.html เพิ่ม checkbox "จดจำฉันไว้ในเครื่องนี้"
+27. **บั๊กที่จับได้ระหว่างทำ**: /api/admin/login เคยเทียบรหัสจาก header (ซึ่ง client ส่งใน body.key) → เทียบ body.key timing-safe ถูกต้อง
+28. **Smoke test local ผ่าน 12/12** (register/dup/login/wrong-pass/me/mine/admin-login/logout) — bump APP_SEMVER เป็น **1.2.0**
+
+
 - (แก้หมดแล้วใน v1.1.2-v1.1.3) เหลือ item 15: Lua script Upstash + rate-limit state ลง Redis
 
 

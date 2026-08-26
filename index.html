@@ -17,6 +17,15 @@
         <button class="nav-link active" data-tab="schedules">ตารางเดินรถ</button>
         <button class="nav-link" data-tab="tickets">ตั๋วของฉัน <span id="ticketBadge" class="badge-count hidden">0</span></button>
       </nav>
+      <!-- [v1.2.0] สมาชิก: ปุ่มเข้าสู่ระบบ / กล่องผู้ใช้ + logout -->
+      <div class="auth-area">
+        <button class="btn btn-ghost btn-sm auth-btn" id="authBtn">เข้าสู่ระบบ / สมัครสมาชิก</button>
+        <div id="userBox" class="user-box hidden">
+          <span class="user-dot"></span>
+          <span id="userName" class="user-name"></span>
+          <button class="nav-link" id="logoutBtn">ออกจากระบบ</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -242,6 +251,48 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+
+  <!-- [v1.2.0] AUTH MODAL: LOGIN / REGISTER -->
+  <div class="modal-overlay hidden" id="authModal">
+    <div class="modal glass-strong auth-modal">
+      <div class="modal-head">
+        <h3 id="authTitle">บัญชีสมาชิก BusGo</h3>
+        <button class="close-btn" id="authClose">&#215;</button>
+      </div>
+      <div class="auth-tabs">
+        <button type="button" class="nav-link active" data-auth="login" id="authTabLogin">เข้าสู่ระบบ</button>
+        <button type="button" class="nav-link" data-auth="register" id="authTabRegister">สมัครสมาชิก</button>
+      </div>
+
+      <form id="authLoginForm" class="info-form">
+        <label>อีเมล
+          <input type="email" id="liEmail" required autocomplete="email" placeholder="you@example.com" />
+        </label>
+        <label>รหัสผ่าน
+          <input type="password" id="liPass" required minlength="8" autocomplete="current-password" placeholder="รหัสผ่าน 8 ตัวขึ้นไป" />
+        </label>
+        <button type="submit" class="btn btn-primary auth-submit" id="loginSubmitBtn">เข้าสู่ระบบ</button>
+      </form>
+
+      <form id="authRegisterForm" class="info-form hidden">
+        <label>ชื่อ–นามสกุล
+          <input type="text" id="rgName" required minlength="3" maxlength="80" placeholder="เช่น สมชาย ใจดี" />
+        </label>
+        <label>อีเมล
+          <input type="email" id="rgEmail" required autocomplete="email" placeholder="you@example.com" />
+        </label>
+        <label>เบอร์โทรศัพท์
+          <input type="tel" id="rgPhone" required inputmode="numeric" maxlength="10" autocomplete="tel" placeholder="08xxxxxxxx" />
+        </label>
+        <label>รหัสผ่าน (8-128 ตัวอักษร)
+          <input type="password" id="rgPass" required minlength="8" maxlength="128" autocomplete="new-password" />
+        </label>
+        <button type="submit" class="btn btn-primary auth-submit" id="registerSubmitBtn">สมัครสมาชิก</button>
+      </form>
+
+      <p class="muted small" style="margin-bottom:0">เป็นสมาชิกแล้วจองได้โดยไม่ต้องกรอกชื่อ–เบอร์ซ้ำ และเปิดดูตั๋วทุกใบได้จากอุปกรณ์ใดก็ได้</p>
+    </div>
+  </div>
 
   <!-- UPDATE NOTIFIER -->
   <div class="update-overlay hidden" id="updateOverlay">

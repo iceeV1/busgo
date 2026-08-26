@@ -776,3 +776,60 @@ body {
 
 
 
+
+/* ================= AUTH / MEMBER ACCOUNTS (v1.2.0) ================= */
+.auth-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.auth-btn { white-space: nowrap; }
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 5px 6px 5px 14px;
+  border-radius: 999px;
+}
+.user-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent, #4ade80);
+  box-shadow: 0 0 8px var(--accent, #4ade80);
+}
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auth-modal .auth-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 10px;
+}
+.auth-submit { margin-top: 6px; width: 100%; }
+.remember-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--muted, #94a3b8);
+  cursor: pointer;
+  margin: 2px 0 10px;
+}
+.remember-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+@media (max-width: 720px) {
+  .header-inner { flex-wrap: wrap; row-gap: 8px; }
+  .auth-area { width: 100%; justify-content: flex-end; }
+  .user-name { max-width: 90px; }
+}

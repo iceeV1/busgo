@@ -16,6 +16,8 @@
       <h2>BusGo Admin</h2>
       <p class="muted small">เข้าสู่ระบบผู้ดูแลหลังบ้าน</p>
       <input type="password" id="adminPass" placeholder="รหัสผ่านผู้ดูแล" required autocomplete="current-password" />
+      <!-- [v1.2.0] remember me: session token 30 วัน (เก็บ localStorage) ปกติ 8 ชม. (sessionStorage) -->
+      <label class="remember-row"><input type="checkbox" id="rememberMe" /> จดจำฉันไว้ในเครื่องนี้ (30 วัน)</label>
       <button type="submit" class="btn btn-primary">เข้าสู่ระบบ</button>
     </form>
   </div>

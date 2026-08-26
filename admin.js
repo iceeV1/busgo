@@ -64,7 +64,11 @@ setTimeValue("fDepart", "08:00");
 setTimeValue("fArrive", "12:00");
 
 /* ================= STATE / API ================= */
-let KEY = sessionStorage.getItem("bg_admin_key") || "";
+/* [v1.2.0] KEY ตอนนี้เก็บ admin session token (จาก POST /api/admin/login)
+   remember me -> localStorage (30 วัน) ปกติ -> sessionStorage (8 ชม.) */
+let KEY = sessionStorage.getItem("bg_admin_session") || localStorage.getItem("bg_admin_session") || "";
+try { sessionStorage.removeItem("bg_admin_key"); } catch {}
+try { localStorage.removeItem("bg_admin_key"); } catch {}
 let buses = [];
 let bookings = [];
 let promos = [];
@@ -74,12 +78,18 @@ let activeInspectedCode = null;
 async function api(path, opts = {}) {
   const r = await fetch(path, {
     method: opts.method || "GET",
-    headers: { "Content-Type": "application/json", "x-admin-key": KEY },
+    headers: { "Content-Type": "application/json", "x-session": KEY },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   let d = {};
   try { d = await r.json(); } catch {}
-  if (r.status === 401) { showLogin(true); throw new Error(d.error || "ไม่ได้รับอนุญาต"); }
+  if (r.status === 401) {
+    /* session หมดอายุ/ไม่ถูกต้อง — ล้างแล้วให้ล็อกอินใหม่ */
+    KEY = "";
+    try { sessionStorage.removeItem("bg_admin_session"); localStorage.removeItem("bg_admin_session"); } catch {}
+    showLogin(true);
+    throw new Error(d.error || "ไม่ได้รับอนุญาต");
+  }
   if (!r.ok) throw new Error(d.error || "เกิดข้อผิดพลาด");
   return d;
 }
@@ -90,11 +100,23 @@ function showLogin(show) {
 }
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  KEY = $("adminPass").value.trim();
+  const pass = $("adminPass").value.trim();
+  const remember = $("rememberMe") && $("rememberMe").checked;
   try {
-    const res = await fetch("/api/admin/check", { headers: { "x-admin-key": KEY } });
-    if (!res.ok) throw new Error("รหัสผ่านไม่ถูกต้อง");
-    sessionStorage.setItem("bg_admin_key", KEY);
+    /* [v1.2.0] login ผ่าน session: remember = 30 วัน / ปกติ = 8 ชม.
+       รหัสจริงถูกส่งครั้งเดียวตอน login หลังจากนั้นใช้ token ล้วน */
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: pass, remember }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || "รหัสผ่านไม่ถูกต้อง");
+    KEY = d.token;
+    sessionStorage.setItem("bg_admin_session", KEY);
+    if (remember) localStorage.setItem("bg_admin_session", KEY);
+    else localStorage.removeItem("bg_admin_session");
+    $("adminPass").value = "";
     showLogin(false);
     toast("เข้าสู่ระบบสำเร็จ");
     refresh();
@@ -102,9 +124,15 @@ $("loginForm").addEventListener("submit", async (e) => {
     toast(err.message || "เข้าสู่ระบบไม่สำเร็จ", true);
   }
 });
-$("logoutBtn").addEventListener("click", () => {
+$("logoutBtn").addEventListener("click", async () => {
+  if (KEY) {
+    try { await fetch("/api/auth/logout", { method: "POST", headers: { "Content-Type": "application/json", "x-session": KEY }, body: "{}" }); } catch {}
+  }
   KEY = "";
-  sessionStorage.removeItem("bg_admin_key");
+  try {
+    sessionStorage.removeItem("bg_admin_session");
+    localStorage.removeItem("bg_admin_session");
+  } catch {}
   showLogin(true);
 });
 
@@ -552,12 +580,17 @@ checkForUpdate(true);
 (async function init() {
   showLogin(true);
   if (KEY) {
+    /* [v1.2.0] ตรวจ session จริงด้วยการยิง refresh() — 401 จะ showLogin(true) + เคลียร์ token เอง */
     try {
-      const res = await fetch("/api/admin/check", { headers: { "x-admin-key": KEY } });
-      if (res.ok) { showLogin(false); refresh(); return; }
+      await refresh();
+      showLogin(false);
+      return;
     } catch {}
     KEY = "";
-    sessionStorage.removeItem("bg_admin_key");
+    try {
+      sessionStorage.removeItem("bg_admin_session");
+      localStorage.removeItem("bg_admin_session");
+    } catch {}
   }
 })();
 

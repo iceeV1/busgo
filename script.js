@@ -32,8 +32,10 @@ let BUSES = [ // ค่าเริ่มต้น (ใช้ทันที / �
 /* ================= STATE / STORAGE ================= */
 const LS_MIRROR = "busgo_local_bookings"; // สำรองไว้ใช้ตอนออฟไลน์
 const LS_MY = "busgo_my_codes";           // รหัสตั๋วที่จองจากเบราว์เซอร์นี้
+const LS_SESSION = "busgo_member_token";  // [v1.2.0] member session token
 let bookings = [];
 let serverOnline = false;
+let currentUser = null; // [v1.2.0] { id, name, email, phone } เมื่อล็อกอิน
 let state = {
   date: new Date().toISOString().slice(0, 10),
   returnDate: "",
@@ -55,6 +57,78 @@ function addMyCode(code) {
   const s = myCodes();
   s.unshift(code);
   localStorage.setItem(LS_MY, JSON.stringify(s.slice(0, 50)));
+}
+
+/* ============ AUTH: MEMBER SESSION (v1.2.0) ============ */
+function getSessionToken() { return localStorage.getItem(LS_SESSION) || ""; }
+function setSessionToken(tok) {
+  if (tok) localStorage.setItem(LS_SESSION, tok);
+  else localStorage.removeItem(LS_SESSION);
+}
+async function apiAuth(method, path, body) {
+  const headers = { "Content-Type": "application/json" };
+  const tok = getSessionToken();
+  if (tok) headers["x-session"] = tok;
+  const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "เกิดข้อผิดพลาด");
+  return data;
+}
+function updateAuthUI() {
+  const btn = $("authBtn");
+  const box = $("userBox");
+  if (!btn || !box) return;
+  if (currentUser) {
+    btn.classList.add("hidden");
+    box.classList.remove("hidden");
+    $("userName").textContent = currentUser.name;
+  } else {
+    btn.classList.remove("hidden");
+    box.classList.add("hidden");
+    $("userName").textContent = "";
+  }
+}
+/* ดึงตั๋วที่ผูกกับบัญชี (mine=1) — เติมเข้า myCodes เพื่อใช้ render pipeline เดิม */
+async function syncMineTickets() {
+  if (!currentUser || !serverOnline) return;
+  try {
+    const mine = await apiAuth("GET", "/api/bookings?mine=1");
+    for (const bk of mine) {
+      const idx = bookings.findIndex((b) => b.code === bk.code);
+      if (idx !== -1) bookings[idx] = { ...bookings[idx], ...bk };
+      else bookings.unshift(bk);
+      if (!myCodes().includes(bk.code)) addMyCode(bk.code);
+    }
+    updateBadge();
+    if (!$("tab-tickets").classList.contains("hidden")) renderTickets();
+  } catch {}
+}
+async function initAuth() {
+  const tok = getSessionToken();
+  if (!tok) { updateAuthUI(); return; }
+  try {
+    const d = await apiAuth("GET", "/api/auth/me");
+    currentUser = d.user;
+  } catch {
+    setSessionToken("");
+    currentUser = null;
+  }
+  updateAuthUI();
+}
+function openAuthModal(mode) {
+  $("authModal").classList.remove("hidden");
+  switchAuthTab(mode === "register" ? "register" : "login");
+  document.body.style.overflow = "hidden";
+}
+function closeAuthModal() {
+  $("authModal").classList.add("hidden");
+  document.body.style.overflow = "";
+}
+function switchAuthTab(tab) {
+  $("authTabLogin").classList.toggle("active", tab === "login");
+  $("authTabRegister").classList.toggle("active", tab === "register");
+  $("authLoginForm").classList.toggle("hidden", tab !== "login");
+  $("authRegisterForm").classList.toggle("hidden", tab !== "register");
 }
 function loadMirror() {
   try { return JSON.parse(localStorage.getItem(LS_MIRROR) || "[]"); } catch { return []; }
@@ -529,6 +603,11 @@ $("toInfoBtn").addEventListener("click", () => {
     return;
   }
   refreshSummaries();
+  /* [v1.2.0] prefill ชื่อ-เบอร์จากบัญชีสมาชิก (ถ้าล็อกอินและช่องยังว่าง) */
+  if (currentUser) {
+    if (!$("custName").value.trim()) $("custName").value = currentUser.name;
+    if (!$("custPhone").value.trim()) $("custPhone").value = currentUser.phone;
+  }
   showStep("stepInfo");
 });
 
@@ -952,6 +1031,84 @@ async function cancelBooking(code) {
   showToast("ยกเลิกการจองเรียบร้อยแล้ว");
 }
 
+/* ================= AUTH UI WIRING (v1.2.0) ================= */
+$("authBtn").addEventListener("click", () => openAuthModal("login"));
+$("authClose").addEventListener("click", closeAuthModal);
+$("authModal").addEventListener("click", (e) => {
+  if (e.target === $("authModal")) closeAuthModal();
+});
+$("authTabLogin").addEventListener("click", () => switchAuthTab("login"));
+$("authTabRegister").addEventListener("click", () => switchAuthTab("register"));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("authModal").classList.contains("hidden")) closeAuthModal();
+});
+
+$("authLoginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("loginSubmitBtn");
+  btn.disabled = true;
+  btn.textContent = "กำลังเข้าสู่ระบบ...";
+  try {
+    const d = await apiAuth("POST", "/api/auth/login", {
+      email: $("liEmail").value.trim(),
+      password: $("liPass").value,
+    });
+    setSessionToken(d.token);
+    currentUser = d.user;
+    closeAuthModal();
+    $("liPass").value = "";
+    updateAuthUI();
+    await syncMineTickets();
+    showToast(`ยินดีต้อนรับ ${d.user.name}`);
+  } catch (err) {
+    showToast(err.message || "เข้าสู่ระบบไม่สำเร็จ", true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "เข้าสู่ระบบ";
+  }
+});
+
+$("authRegisterForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const phone = $("rgPhone").value.replace(/[-\s]/g, "");
+  if (!/^0\d{8,9}$/.test(phone)) { showToast("เบอร์โทรศัพท์ไม่ถูกต้อง (เช่น 0812345678)", true); return; }
+  const btn = $("registerSubmitBtn");
+  btn.disabled = true;
+  btn.textContent = "กำลังสมัครสมาชิก...";
+  try {
+    const d = await apiAuth("POST", "/api/auth/register", {
+      name: $("rgName").value.trim(),
+      email: $("rgEmail").value.trim(),
+      password: $("rgPass").value,
+      phone,
+    });
+    setSessionToken(d.token);
+    currentUser = d.user;
+    closeAuthModal();
+    $("rgPass").value = "";
+    updateAuthUI();
+    await syncMineTickets();
+    showToast(`สมัครสมาชิกสำเร็จ ยินดีต้อนรับ ${d.user.name}`);
+  } catch (err) {
+    showToast(err.message || "สมัครสมาชิกไม่สำเร็จ", true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "สมัครสมาชิก";
+  }
+});
+
+$("logoutBtn").addEventListener("click", async () => {
+  const tok = getSessionToken();
+  if (tok && serverOnline) {
+    try { await apiAuth("POST", "/api/auth/logout"); } catch {}
+  }
+  setSessionToken("");
+  currentUser = null;
+  updateAuthUI();
+  renderTickets();
+  showToast("ออกจากระบบแล้ว");
+});
+
 /* ================= UPDATE NOTIFIER ================= */
 const UPDATE_KEY = "busgo_loaded_version";
 async function checkForUpdate(first = false) {
@@ -986,6 +1143,7 @@ document.addEventListener("visibilitychange", () => {
 
 /* ================= INIT ================= */
 initFilters();
+initAuth().then(() => syncMineTickets());
 loadData().then(() => {
   renderBuses();
   updateBadge();

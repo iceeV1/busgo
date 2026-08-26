@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.1.3"; // เวอร์ชันระบบ — Patch: ตัดที่นั่งปลอม, offline flow ชัดเจน, PromptPay ref, time picker ทุกนาที
+const APP_SEMVER = "1.2.0"; // เวอร์ชันระบบ — Minor: ระบบสมาชิก (register/login/logout) + admin session token
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -170,6 +170,12 @@ function normalize(db) {
   db.buses = (db.buses || []).filter((b) => (b.mode || "bus") === "bus");
   if (db.buses.length !== before) changed = true;
   if (!Array.isArray(db.promos)) { db.promos = JSON.parse(JSON.stringify(DEFAULT_PROMOS)); changed = true; }
+  /* [v1.2.0] users/sessions สำหรับระบบสมาชิก — ตัด session ที่หมดอายุออกกัน DB บวม */
+  if (!Array.isArray(db.users)) { db.users = []; changed = true; }
+  if (!Array.isArray(db.sessions)) { db.sessions = []; changed = true; }
+  const now = Date.now();
+  const alive = db.sessions.filter((s) => new Date(s.expiresAt).getTime() > now);
+  if (alive.length !== db.sessions.length) { db.sessions = alive; changed = true; }
   return changed;
 }
 
@@ -197,6 +203,8 @@ async function loadDB() {
       buses: DEFAULT_BUSES.map((b) => ({ ...b, mode: "bus" })),
       bookings: [],
       promos: JSON.parse(JSON.stringify(DEFAULT_PROMOS)),
+      users: [],
+      sessions: [],
       seq: 1,
     };
     await saveDB(db);
@@ -299,10 +307,66 @@ function readBody(req) {
   });
 }
 /* เทียบรหัสแบบ timing-safe กัน timing attack */
-function isAdmin(req) {
+function isAdminKey(req) {
   const given = Buffer.from(String(req.headers["x-admin-key"] || ""));
   const want = Buffer.from(ADMIN_KEY);
   return given.length === want.length && crypto.timingSafeEqual(given, want);
+}
+function isAdmin(req) {
+  /* [v1.2.0] ยอมรับ 2 ช่องทาง:
+     1) x-session — admin session token (จาก POST /api/admin/login) มีอายุ
+     2) x-admin-key — คีย์ตรง (สำหรับ curl/automation เดิม) */
+  const db = req._db;
+  const tok = String(req.headers["x-session"] || "");
+  if (tok && db && Array.isArray(db.sessions)) {
+    const now = Date.now();
+    const s = db.sessions.find((x) => x.token === tok && x.kind === "admin"
+      && new Date(x.expiresAt).getTime() > now);
+    if (s) return true;
+  }
+  return isAdminKey(req);
+}
+
+/* ================= AUTH: MEMBERS + SESSIONS (v1.2.0) =================
+   - รหัสผ่านเก็บแบบ scrypt + salt สุ่มต่อ user (ไม่เก็บ plaintext)
+   - session token สุ่ม crypto 32 ไบต์ เก็บใน db.sessions (รอด redeploy เมื่อใช้ Upstash)
+   - TTL: member 7 วัน / admin 8 ชม. / admin remember-me 30 วัน */
+const MEMBER_SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const ADMIN_SESSION_MS = 8 * 60 * 60 * 1000;
+const ADMIN_REMEMBER_MS = 30 * 24 * 60 * 60 * 1000;
+
+function hashPassword(password, salt) {
+  return crypto.scryptSync(String(password), String(salt), 64).toString("hex");
+}
+function verifyPassword(password, user) {
+  const test = Buffer.from(hashPassword(password, user.salt));
+  const stored = Buffer.from(String(user.passHash || ""));
+  return test.length === stored.length && crypto.timingSafeEqual(test, stored);
+}
+function publicSelf(user) {
+  return { id: user.id, name: user.name, email: user.email, phone: user.phone };
+}
+function createSession(db, kind, userId, ttlMs) {
+  const s = {
+    token: crypto.randomBytes(32).toString("hex"),
+    kind,
+    userId: userId || null,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + ttlMs).toISOString(),
+  };
+  db.sessions.push(s);
+  return s;
+}
+function getSessionUser(req) {
+  const db = req._db;
+  const tok = String(req.headers["x-session"] || "");
+  if (!db || !tok || !Array.isArray(db.sessions)) return null;
+  const now = Date.now();
+  const s = db.sessions.find((x) => x.token === tok && x.kind === "member"
+    && new Date(x.expiresAt).getTime() > now);
+  if (!s) return null;
+  const u = db.users.find((x) => x.id === s.userId);
+  return u ? { session: s, user: u } : null;
 }
 
 function validateBus(b) {
@@ -322,6 +386,7 @@ function validateBus(b) {
 /* ================= API ================= */
 async function handleApi(req, res, p) {
   const db = await loadDB(); // อ่านใหม่ทุก request → ข้อมูลสดเสมอ
+  req._db = db; // [v1.2.0] ให้ isAdmin/getSessionUser เข้าถึง sessions ของ request นี้
   const m = req.method;
 
   /* ---------- BUSES ---------- */
@@ -380,6 +445,15 @@ async function handleApi(req, res, p) {
 
   /* ---------- BOOKINGS ---------- */
   if (p === "/api/bookings" && m === "GET") {
+    /* [v1.2.0] mine=1 — ตั๋วของผู้ใช้ที่ล็อกอิน (ผูก userId ตอนจอง) พร้อม PII เต็มเฉพาะตัวเอง */
+    const uq = new URL(req.url, "http://x");
+    if (uq.searchParams.get("mine") === "1") {
+      const su = getSessionUser(req);
+      if (!su) return send(res, 401, { error: "กรุณาเข้าสู่ระบบก่อน" });
+      const mine = db.bookings.filter((b) => b.userId === su.user.id)
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      return send(res, 200, mine);
+    }
     const list = [...db.bookings].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
     /* [FIXED] เดิมเปิด PII ทั้งหมดให้คนทั่วไป (ชื่อ/เบอร์โทร/หมายเหตุ) — ตอนนี้ non-admin
        เห็นเฉพาะส่วนจำเป็นต่อผังที่นั่งและสถานะตั๋ว ข้อมูลส่วนตัวเห็นได้ปุ่มยั้ง admin */
@@ -485,6 +559,8 @@ async function handleApi(req, res, p) {
       status: "active",
       createdAt: new Date().toISOString(),
     };
+    const su = getSessionUser(req);
+    if (su) booking.userId = su.user.id; // [v1.2.0] ผูกการจองกับบัญชีสมาชิก (ถ้าล็อกอินอยู่)
     db.bookings.push(booking);
     await saveDB(db);
     return send(res, 201, { booking });
@@ -540,6 +616,83 @@ async function handleApi(req, res, p) {
       await saveDB(db);
       return send(res, 200, { deleted: code });
     }
+  }
+
+  /* ---------- AUTH (v1.2.0): สมาชิก + admin session ---------- */
+  if (p === "/api/auth/register" && m === "POST") {
+    const body = await readBody(req);
+    const name = String(body.name || "").trim().slice(0, 80);
+    const email = String(body.email || "").trim().toLowerCase().slice(0, 120);
+    const password = String(body.password || "");
+    const phone = String(body.phone || "").replace(/[-\s]/g, "");
+    if (name.length < 3) return send(res, 400, { error: "กรุณากรอกชื่อ–นามสกุล (3-80 ตัวอักษร)" });
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return send(res, 400, { error: "รูปแบบอีเมลไม่ถูกต้อง" });
+    if (password.length < 8 || password.length > 128) return send(res, 400, { error: "รหัสผ่านต้องมีความยาว 8-128 ตัวอักษร" });
+    if (!/^0\d{8,9}$/.test(phone)) return send(res, 400, { error: "เบอร์โทรศัพท์ไม่ถูกต้อง" });
+    if (db.users.some((x) => x.email === email)) return send(res, 409, { error: "อีเมลนี้ถูกใช้สมัครแล้ว" });
+    const salt = crypto.randomBytes(16).toString("hex");
+    const user = {
+      id: "U" + crypto.randomBytes(4).toString("hex").toUpperCase(),
+      name, email, phone,
+      salt,
+      passHash: hashPassword(password, salt),
+      createdAt: new Date().toISOString(),
+    };
+    db.users.push(user);
+    const sess = createSession(db, "member", user.id, MEMBER_SESSION_MS);
+    await saveDB(db);
+    return send(res, 201, { token: sess.token, expiresAt: sess.expiresAt, user: publicSelf(user) });
+  }
+
+  if (p === "/api/auth/login" && m === "POST") {
+    const body = await readBody(req).catch(() => ({}));
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "");
+    const u = db.users.find((x) => x.email === email);
+    /* ข้อความเดียวกันทั้งกรณีไม่พบอีเมล/รหัสผ่านผิด — กัน user enumeration */
+    if (!u || !verifyPassword(password, u)) return send(res, 401, { ok: false, error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" });
+    const sess = createSession(db, "member", u.id, MEMBER_SESSION_MS);
+    await saveDB(db);
+    return send(res, 200, { token: sess.token, expiresAt: sess.expiresAt, user: publicSelf(u) });
+  }
+
+  if (p === "/api/auth/logout" && m === "POST") {
+    const tok = String(req.headers["x-session"] || "");
+    if (tok && Array.isArray(db.sessions)) {
+      const idx = db.sessions.findIndex((s) => s.token === tok);
+      if (idx !== -1) {
+        db.sessions.splice(idx, 1);
+        await saveDB(db);
+        return send(res, 200, { ok: true });
+      }
+    }
+    return send(res, 200, { ok: true }); // logout ของ session ที่ไม่มีอยู่ก็ถือว่าสำเร็จ
+  }
+
+  if (p === "/api/auth/me" && m === "GET") {
+    const su = getSessionUser(req);
+    if (!su) return send(res, 401, { error: "ไม่ได้เข้าสู่ระบบ" });
+    return send(res, 200, { user: publicSelf(su.user), expiresAt: su.session.expiresAt });
+  }
+
+  if (p === "/api/admin/login" && m === "POST") {
+    const ip = clientIp(req);
+    const lock = adminLockInfo(ip);
+    if (lock.locked) return send(res, 429, { ok: false, error: `ล็อกอินผิดพลาดหลายครั้ง — ลองใหม่ในอีก ${lock.minsLeft} นาที` });
+    let body = {};
+    try { body = await readBody(req); } catch {}
+    /* [FIX v1.2.0] เทียบรหัสที่ส่งมาใน body.key (ไม่ใช่ header) แบบ timing-safe */
+    const given = Buffer.from(String(body.key || ""));
+    const want = Buffer.from(ADMIN_KEY);
+    if (!(given.length === want.length && crypto.timingSafeEqual(given, want))) {
+      adminRecordFail(ip);
+      const left = ADMIN_MAX_FAILS - (adminFails.get(ip)?.count || 0);
+      return send(res, 401, { ok: false, error: "รหัสผ่านไม่ถูกต้อง", remaining: Math.max(left, 0) });
+    }
+    adminFails.delete(ip);
+    const sess = createSession(db, "admin", null, body.remember ? ADMIN_REMEMBER_MS : ADMIN_SESSION_MS);
+    await saveDB(db);
+    return send(res, 200, { ok: true, token: sess.token, expiresAt: sess.expiresAt });
   }
 
   /* ---------- PROMOTIONS ---------- */
@@ -622,6 +775,9 @@ const server = http.createServer(async (req, res) => {
       if (!rateLimit(req, res, "api:" + ip, 120, 60 * 1000)) return;
       // สร้างการจอง: 5 ครั้ง/10 นาที ต่อ IP (กันสแปมจองเป็นจำนวนมาก)
       if (p === "/api/bookings" && m === "POST" && !rateLimit(req, res, "book:" + ip, 5, 10 * 60 * 1000)) return;
+      // [v1.2.0] register/login/admin-login: 10 ครั้ง/5 นาที ต่อ IP (กัน brute force รหัสผ่าน)
+      if ((p === "/api/auth/register" || p === "/api/auth/login" || p === "/api/admin/login") && m !== "GET"
+        && !rateLimit(req, res, "auth:" + ip, 10, 5 * 60 * 1000)) return;
       // ค้นหาตั๋วข้ามเครื่อง: 10 ครั้ง/5 นาที ต่อ IP (กัน brute force เบอร์โทร)
       if (p === "/api/bookings/search" && !isAdmin(req) && !rateLimit(req, res, "search:" + ip, 10, 5 * 60 * 1000)) return;
       // เช็ครหัส admin: 10 ครั้ง/5 นาที (กัน brute force)
