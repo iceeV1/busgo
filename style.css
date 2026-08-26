@@ -323,12 +323,47 @@ body {
 }
 
 /* ================= MY TICKETS ================= */
+.ticket-lookup-card {
+  margin-bottom: 24px;
+  padding: 20px;
+}
+.ticket-lookup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ticket-lookup-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.ticket-lookup-sub {
+  font-size: 0.84rem;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+.ticket-lookup-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 640px) {
+  .ticket-lookup-form {
+    grid-template-columns: 1fr;
+  }
+}
+
 .my-ticket {
   background: var(--card); border: 1px solid var(--card-border);
   border-radius: var(--radius); padding: 20px; position: relative;
   animation: fadeUp .4s ease both; transition: transform .2s, opacity .3s;
 }
 .my-ticket:hover { transform: translateY(-3px); }
+.my-ticket.checkedin { border-color: rgba(168,85,247,.45); background: linear-gradient(160deg, rgba(168,85,247,.08), rgba(255,255,255,0.04)); }
 .my-ticket.cancelled { opacity: .55; filter: grayscale(.6); }
 .my-ticket .tk-route { font-weight: 600; font-size: 1.02rem; margin-bottom: 10px; }
 .my-ticket .tk-info { font-size: 0.84rem; color: var(--muted); line-height: 1.75; }
@@ -336,10 +371,112 @@ body {
 .my-ticket-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--card-border); }
 .status-pill { font-size: 0.74rem; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
 .status-active { background: rgba(52,211,153,.18); color: var(--green); }
+.status-checkedin { background: rgba(168,85,247,.22); color: #c084fc; border: 1px solid rgba(168,85,247,.35); }
 .status-cancelled { background: rgba(251,113,133,.18); color: var(--red); }
 .cancel-link {
   background: none; border: none; color: var(--red); font-family: inherit;
   font-size: 0.83rem; cursor: pointer; text-decoration: underline; padding: 4px;
+}
+
+/* ================= CHECKIN / SCANNER STYLES ================= */
+.checkin-search-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.checkin-form {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-width: 280px;
+}
+.checkin-form input[type="search"] {
+  flex: 1;
+  font-size: 1.05rem;
+  letter-spacing: 1px;
+}
+.ci-tip {
+  white-space: nowrap;
+}
+.checkin-result-card {
+  border: 1px solid rgba(168,85,247,.5);
+  background: linear-gradient(160deg, rgba(30, 37, 66, 0.95), rgba(20, 26, 53, 0.98));
+  padding: 24px;
+}
+.ci-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--card-border);
+}
+.ci-code {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 2px;
+}
+.ci-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.ci-seats {
+  color: var(--accent);
+  font-size: 1.05rem;
+}
+.ci-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--card-border);
+}
+.ci-main-btn {
+  font-size: 1.1rem;
+  padding: 14px 32px;
+}
+.ci-undo-btn {
+  padding: 10px 20px;
+}
+.ci-empty {
+  text-align: center;
+  padding: 20px;
+}
+.ci-status-badge {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 6px 18px;
+  border-radius: 999px;
+}
+.checkin-log-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.link-btn:hover {
+  color: #fff;
 }
 
 /* ================= TOAST / FOOTER / ANIM ================= */
@@ -417,6 +554,7 @@ body {
 .stat-card.hl { background: linear-gradient(150deg, rgba(99,102,241,.28), rgba(168,85,247,.16)); border-color: rgba(139,92,246,.5); }
 .stat-card.gold .sc-value { color: var(--gold); }
 .stat-card.green .sc-value { color: var(--green); }
+.stat-card.purple .sc-value { color: #c084fc; }
 
 .panel { padding: 22px; margin-bottom: 22px; }
 .panel h3 { margin: 0 0 16px; font-size: 1.05rem; }

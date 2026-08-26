@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 /* ============================================================
    BusGo Backend — Node.js ล้วน ไม่ต้อง npm install
    ฐานข้อมูล: data/db.json | API: /api/buses, /api/bookings
@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.0.3"; // เวอร์ชันระบบ — Phase 1.5 (cross-device ticket lookup by code+phone)
+const APP_SEMVER = "1.1.0"; // เวอร์ชันระบบ — Phase 1 (ticket scan / check-in system)
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -359,6 +359,7 @@ async function handleApi(req, res, p) {
         date: b.date,
         seats: b.seats,
         status: b.status,
+        checkedInAt: b.checkedInAt,
         total: b.total,
         createdAt: b.createdAt,
       })));
@@ -384,6 +385,7 @@ async function handleApi(req, res, p) {
       date: hit.date,
       seats: hit.seats,
       status: hit.status,
+      checkedInAt: hit.checkedInAt,
       total: hit.total,
       createdAt: hit.createdAt,
     });
@@ -406,9 +408,9 @@ async function handleApi(req, res, p) {
     if (name.length < 3) return send(res, 400, { error: "กรุณากรอกชื่อ–นามสกุล" });
     if (!/^0\d{8,9}$/.test(phone)) return send(res, 400, { error: "เบอร์โทรศัพท์ไม่ถูกต้อง" });
 
-    // ตรวจที่นั่งซ้ำกับการจองที่ยัง active
+    // ตรวจที่นั่งซ้ำกับการจองที่ยัง active หรือ checked_in
     const taken = new Set(
-      db.bookings.filter((k) => k.busId === bus.id && k.date === body.date && k.status === "active")
+      db.bookings.filter((k) => k.busId === bus.id && k.date === body.date && (k.status === "active" || k.status === "checked_in"))
         .flatMap((k) => k.seats)
     );
     const conflict = seats.find((s) => taken.has(s));
@@ -446,13 +448,35 @@ async function handleApi(req, res, p) {
   }
 
   let mb;
-  if ((mb = p.match(/^\/api\/bookings\/([^/]+)(\/cancel)?$/))) {
+  if ((mb = p.match(/^\/api\/bookings\/([^/]+)(\/cancel|\/checkin|\/uncheckin)?$/))) {
     const code = decodeURIComponent(mb[1]);
     const bk = db.bookings.find((x) => x.code === code);
     if (!bk) return send(res, 404, { error: "ไม่พบรายการจองนี้" });
+    const action = mb[2];
 
-    if (mb[2] && m === "PATCH") {
-      if (bk.status !== "active") return send(res, 409, { error: "รายการนี้ถูกยกเลิกไปแล้ว" });
+    /* [v1.1.0] ระบบสแกนเช็คอินขึ้นรถ (Phase 1) */
+    if (action === "/checkin" && m === "PATCH") {
+      if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
+      if (bk.status === "cancelled") return send(res, 400, { error: "ตั๋วนี้ถูกยกเลิกไปแล้ว ไม่สามารถเช็คอินได้" });
+      if (bk.status === "checked_in") return send(res, 409, { error: `ตั๋วนี้เช็คอินขึ้นรถไปแล้วเมื่อ ${bk.checkedInAt ? new Date(bk.checkedInAt).toLocaleTimeString("th-TH") : ""}`, booking: bk });
+      bk.status = "checked_in";
+      bk.checkedInAt = new Date().toISOString();
+      await saveDB(db);
+      return send(res, 200, { booking: bk, message: "เช็คอินขึ้นรถสำเร็จ" });
+    }
+
+    if (action === "/uncheckin" && m === "PATCH") {
+      if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
+      if (bk.status !== "checked_in") return send(res, 400, { error: "ตั๋วนี้ยังไม่ได้เช็คอิน" });
+      bk.status = "active";
+      delete bk.checkedInAt;
+      await saveDB(db);
+      return send(res, 200, { booking: bk, message: "ยกเลิกสถานะเช็คอินแล้ว" });
+    }
+
+    if (action === "/cancel" && m === "PATCH") {
+      if (bk.status === "cancelled") return send(res, 409, { error: "รายการนี้ถูกยกเลิกไปแล้ว" });
+      if (bk.status === "checked_in") return send(res, 409, { error: "ตั๋วนี้เช็คอินขึ้นรถแล้ว ไม่สามารถยกเลิกได้" });
       /* [FIXED] เดิมใครรู้รหัสตั๋วก็ยกเลิกได้ — ตอนนี้ admin ผ่านได้เลย
          ส่วนผู้จองตัวจริงต้องส่งเบอร์โทรมายืนยันให้ตรงกับรายการ */
       if (!isAdmin(req)) {
@@ -466,7 +490,7 @@ async function handleApi(req, res, p) {
       await saveDB(db);
       return send(res, 200, { booking: bk });
     }
-    if (!mb[2] && m === "DELETE") {
+    if (!action && m === "DELETE") {
       if (!isAdmin(req)) return send(res, 401, { error: "ต้องการสิทธิ์ผู้ดูแล" });
       db.bookings = db.bookings.filter((x) => x.code !== code);
       await saveDB(db);

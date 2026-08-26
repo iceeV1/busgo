@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 /* ================= DATA ================= */
 const PROVINCES = [
@@ -127,7 +127,7 @@ function getOccupied(busId, date, total) {
 function getUserTaken(busId, date) {
   const set = new Set();
   bookings.forEach((b) => {
-    if (b.busId === busId && b.date === date && b.status === "active") {
+    if (b.busId === busId && b.date === date && (b.status === "active" || b.status === "checked_in")) {
       b.seats.forEach((s) => set.add(s));
     }
   });
@@ -143,7 +143,7 @@ function seatsLeftOf(bus, date) {
 
 /* ================= HELPERS ================= */
 const $ = (id) => document.getElementById(id);
-const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const esc = (t) => (t == null ? "" : String(t)).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 function fmtDate(iso) {
   if (!iso) return "—";
   const d = new Date(iso + "T00:00:00");
@@ -752,7 +752,7 @@ document.addEventListener("keydown", (e) => {
 
 /* ================= MY TICKETS ================= */
 function updateBadge() {
-  const n = bookings.filter((b) => b.status === "active").length;
+  const n = bookings.filter((b) => myCodes().includes(b.code) && (b.status === "active" || b.status === "checked_in")).length;
   const badge = $("ticketBadge");
   badge.textContent = n;
   badge.classList.toggle("hidden", n === 0);
@@ -763,9 +763,9 @@ function renderTickets() {
   const wrap = $("ticketList");
   const has = mine.length > 0;
 
-  // แต้มสะสม: 1 แต้มทุก 100 บาท (นับจากตั๋ว active ของตั๋วที่เราจอง)
+  // แต้มสะสม: 1 แต้มทุก 100 บาท (นับจากตั๋ว active/checked_in ของตั๋วที่เราจอง)
   const pts = mine
-    .filter((b) => b.status === "active")
+    .filter((b) => b.status === "active" || b.status === "checked_in")
     .reduce((s, b) => s + Math.floor((b.total || 0) / 100), 0);
   const pb = $("pointsBar");
   pb.classList.toggle("hidden", pts === 0);
@@ -778,28 +778,127 @@ function renderTickets() {
     const bus = findBus(bk.busId);
     const route = bus ? `${bus.from} → ${bus.to}` : "(เส้นทางไม่พบ)";
     const depart = bus ? bus.depart : "—";
-    const active = bk.status === "active";
+    const isActive = bk.status === "active";
+    const isCheckedIn = bk.status === "checked_in";
+    const isCancelled = bk.status === "cancelled";
+    const statusCls = isCheckedIn ? "status-checkedin" : isActive ? "status-active" : "status-cancelled";
+    const statusText = isCheckedIn ? "ขึ้นรถแล้ว" : isActive ? "ยืนยันแล้ว" : "ยกเลิกแล้ว";
+
+    const passengerInfo = bk.name
+      ? `ผู้โดยสาร: <b>${esc(bk.name)}</b>${bk.phone ? ` · โทร ${esc(bk.phone)}` : ""}<br />`
+      : bk.phone
+      ? `เบอร์โทรผู้จอง: <b>${esc(bk.phone)}</b><br />`
+      : "";
+
     return `
-    <article class="my-ticket ${active ? "" : "cancelled"}" style="animation-delay:${i * 0.06}s">
+    <article class="my-ticket ${isCancelled ? "cancelled" : isCheckedIn ? "checkedin" : ""}" style="animation-delay:${i * 0.06}s">
       <div class="tk-route">${esc(route)}</div>
       <div class="tk-info">
         รหัสตั๋ว: <b>${esc(bk.code)}</b><br />
-        ผู้โดยสาร: <b>${esc(bk.name)}</b> · โทร ${esc(bk.phone)}<br />
-        วันที่: <b>${fmtDate(bk.date)}</b> · ออกรถ <b>${depart}</b><br />
+        ${passengerInfo}วันที่: <b>${fmtDate(bk.date)}</b> · ออกรถ <b>${depart}</b><br />
         ที่นั่ง: <b>${bk.seats.join(", ")}</b> · ยอดรวม <b>฿${bk.total.toLocaleString()}</b>
+        ${bk.checkedInAt ? `<br />เวลาขึ้นรถ: <b style="color:var(--accent)">${new Date(bk.checkedInAt).toLocaleTimeString("th-TH")} น.</b>` : ""}
         ${bk.note ? `<br />หมายเหตุ: ${esc(bk.note)}` : ""}
       </div>
       <div class="my-ticket-foot">
-        <span class="status-pill ${active ? "status-active" : "status-cancelled"}">
-          ${active ? "ยืนยันแล้ว" : "ยกเลิกแล้ว"}
+        <span class="status-pill ${statusCls}">
+          ${statusText}
         </span>
-        ${active ? `<button class="cancel-link" data-cancel="${esc(bk.code)}">ยกเลิกการจอง</button>` : "<span></span>"}
+        ${isActive ? `<button class="cancel-link" data-cancel="${esc(bk.code)}">ยกเลิกการจอง</button>` : isCheckedIn ? `<span class="muted small">พร้อมออกเดินทาง</span>` : "<span></span>"}
       </div>
     </article>`;
   }).join("");
 
   wrap.querySelectorAll("[data-cancel]").forEach((btn) =>
     btn.addEventListener("click", () => cancelBooking(btn.dataset.cancel)));
+}
+
+async function searchTicketCrossDevice(e) {
+  if (e) e.preventDefault();
+  const codeInput = $("lookupCode");
+  const phoneInput = $("lookupPhone");
+  const btn = $("lookupBtn");
+  if (!codeInput || !phoneInput || !btn) return;
+
+  const code = codeInput.value.trim().toUpperCase();
+  const phone = phoneInput.value.replace(/[-\s]/g, "");
+
+  if (!code) {
+    showToast("กรุณากรอกรหัสตั๋ว (เช่น BG-A1B2C3)", true);
+    codeInput.focus();
+    return;
+  }
+  if (!/^BG-[0-9A-F]{6,12}$/i.test(code)) {
+    showToast("รูปแบบรหัสตั๋วไม่ถูกต้อง (ต้องขึ้นต้นด้วย BG- ตามด้วยรหัสตั๋ว)", true);
+    codeInput.focus();
+    return;
+  }
+  if (!phone) {
+    showToast("กรุณากรอกเบอร์โทรศัพท์ที่ใช้จอง", true);
+    phoneInput.focus();
+    return;
+  }
+  if (!/^0\d{8,9}$/.test(phone)) {
+    showToast("รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง (เช่น 0812345678)", true);
+    phoneInput.focus();
+    return;
+  }
+
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "กำลังค้นหา...";
+
+  try {
+    const res = await fetch(`/api/bookings/search?code=${encodeURIComponent(code)}&phone=${encodeURIComponent(phone)}`);
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        showToast("ไม่พบข้อมูลตั๋ว หรือเบอร์โทรศัพท์ไม่ตรงกับข้อมูลการจอง", true);
+      } else {
+        showToast(data.error || "ค้นหาตั๋วไม่สำเร็จ", true);
+      }
+      return;
+    }
+
+    const ticketWithPhone = { ...data, phone };
+
+    if (!myCodes().includes(data.code)) {
+      addMyCode(data.code);
+    }
+
+    const existingIdx = bookings.findIndex((b) => b.code === data.code);
+    if (existingIdx !== -1) {
+      bookings[existingIdx] = { ...bookings[existingIdx], ...ticketWithPhone };
+    } else {
+      bookings.unshift(ticketWithPhone);
+    }
+
+    const mirror = loadMirror();
+    const mIdx = mirror.findIndex((b) => b.code === data.code);
+    if (mIdx !== -1) {
+      mirror[mIdx] = { ...mirror[mIdx], ...ticketWithPhone };
+    } else {
+      mirror.unshift(ticketWithPhone);
+    }
+    try { localStorage.setItem(LS_MIRROR, JSON.stringify(mirror)); } catch {}
+
+    updateBadge();
+    renderTickets();
+    showToast(`พบตั๋ว ${data.code} และเพิ่มเข้ารายการตั๋วของฉันแล้ว`);
+    codeInput.value = "";
+    phoneInput.value = "";
+  } catch {
+    showToast("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อค้นหาตั๋วได้", true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+
+const lookupForm = $("lookupForm");
+if (lookupForm) {
+  lookupForm.addEventListener("submit", searchTicketCrossDevice);
 }
 
 async function cancelBooking(code) {

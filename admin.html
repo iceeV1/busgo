@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
@@ -34,9 +34,10 @@
   <main class="container admin-main">
     <nav class="admin-tabs">
       <button class="nav-link active" data-tab="dash">ภาพรวม</button>
+      <button class="nav-link" data-tab="checkin">สแกนตั๋ว / เช็คอิน</button>
       <button class="nav-link" data-tab="bookings">การจอง</button>
       <button class="nav-link" data-tab="buses">จัดการรอบรถ</button>
-        <button class="nav-link" data-tab="promos">โปรโมชั่น</button>
+      <button class="nav-link" data-tab="promos">โปรโมชั่น</button>
     </nav>
 
     <!-- DASHBOARD -->
@@ -48,6 +49,29 @@
       </div>
     </section>
 
+    <!-- CHECK-IN / TICKET SCANNER -->
+    <section id="tab-checkin" class="hidden">
+      <div class="filter-row glass checkin-search-row">
+        <form id="checkinForm" class="checkin-form">
+          <input type="search" id="ciInput" placeholder="สแกนบาร์โค้ด / QR หรือพิมพ์รหัสตั๋ว เช่น BG-A1B2C3" autocomplete="off" />
+          <button type="submit" class="btn btn-primary" id="ciSearchBtn" style="padding:11px 22px">ตรวจสอบตั๋ว</button>
+        </form>
+        <span class="muted small ci-tip">สแกนจากกล้อง/หัวอ่าน หรือพิมพ์รหัสตั๋วเพื่อตรวจรับผู้โดยสาร</span>
+      </div>
+
+      <!-- TICKET SCAN RESULT CARD -->
+      <div id="ciResultCard" class="panel glass hidden checkin-result-card"></div>
+
+      <!-- TODAY'S CHECK-IN SUMMARY & RECENT LOGS -->
+      <div class="panel glass">
+        <div class="checkin-log-head">
+          <h3 style="margin:0">ประวัติการเช็คอินขึ้นรถล่าสุด</h3>
+          <span id="ciStatsToday" class="muted small"></span>
+        </div>
+        <div class="table-wrap" style="margin-top:14px"><table class="data-table" id="ciLogTable"></table></div>
+      </div>
+    </section>
+
     <!-- BOOKINGS -->
     <section id="tab-bookings" class="hidden">
       <div class="filter-row glass">
@@ -55,7 +79,8 @@
         <input type="date" id="bkDate" />
         <select id="bkStatus">
           <option value="">ทุกสถานะ</option>
-          <option value="active">ยืนยันแล้ว</option>
+          <option value="active">ยืนยันแล้ว (ยังไม่ขึ้นรถ)</option>
+          <option value="checked_in">ขึ้นรถแล้ว (เช็คอินแล้ว)</option>
           <option value="cancelled">ยกเลิกแล้ว</option>
         </select>
         <button class="btn btn-primary btn-sm" id="bkRefresh" style="padding:11px 18px">รีเฟรช</button>

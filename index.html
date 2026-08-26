@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
@@ -92,12 +92,33 @@
 
   <main class="container page hidden" id="tab-tickets">
     <div class="results-header"><h2>ตั๋วของฉัน</h2></div>
+
+    <!-- TICKET LOOKUP CARD (CROSS-DEVICE) -->
+    <div class="glass ticket-lookup-card">
+      <div class="ticket-lookup-head">
+        <span class="ticket-lookup-title">ค้นหาตั๋วข้ามเครื่อง</span>
+        <span class="muted small">กรณีเปลี่ยนอุปกรณ์หรือล้างข้อมูลเบราว์เซอร์</span>
+      </div>
+      <p class="ticket-lookup-sub">กรอกรหัสตั๋วและเบอร์โทรศัพท์ที่ใช้จองเพื่อดึงข้อมูลตั๋วมายังเครื่องนี้</p>
+      <form id="lookupForm" class="ticket-lookup-form">
+        <div class="search-field">
+          <label>รหัสตั๋ว</label>
+          <input type="text" id="lookupCode" placeholder="เช่น BG-A1B2C3" autocomplete="off" autocapitalize="characters" required />
+        </div>
+        <div class="search-field">
+          <label>เบอร์โทรศัพท์ที่ใช้จอง</label>
+          <input type="tel" id="lookupPhone" placeholder="08x-xxx-xxxx" maxlength="10" inputmode="numeric" autocomplete="tel" required />
+        </div>
+        <button type="submit" id="lookupBtn" class="btn btn-primary">ค้นหาตั๋ว</button>
+      </form>
+    </div>
+
     <div id="pointsBar" class="points-bar hidden"></div>
     <div id="ticketList" class="ticket-grid"></div>
     <div id="ticketEmpty" class="empty-state hidden">
       <div class="empty-icon"></div>
       <h3>ยังไม่มีตั๋ว</h3>
-      <p>ไปจองคิวรถบัสเที่ยวแรกของคุณได้ที่แท็บ "ตารางเดินรถ"</p>
+      <p>ไปจองคิวรถบัสเที่ยวแรกของคุณได้ที่แท็บ "ตารางเดินรถ" หรือค้นหาตั๋วที่มีอยู่ด้านบน</p>
     </div>
   </main>
 

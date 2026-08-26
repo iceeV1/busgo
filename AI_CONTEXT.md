@@ -16,10 +16,10 @@
 
 ## สถานะปัจจุบัน (อัปเดต: 2026-08-26)
 
-- เวอร์ชัน **1.0.3**, commit ล่าสุด `797b992` (origin) + v1.0.3 (local) — Phase 1.5 cross-device ticket lookup
+- เวอร์ชัน **1.1.0** — Phase 1 ระบบสแกนตั๋วเข้า-ออกรถ (Check-in System) เสร็จสมบูรณ์
 - รายละเอียด v1.0.2: ดูหัวข้อ "งานรัดความปลอดภัย v1.0.2" ด้านล่าง
 - Cloudflare: SSL Full (strict), Always Use HTTPS, Bot Fight Mode, Rate Limit 100 req/min/IP (Block 10 นาที), WAF block `/admin` จากต่างประเทศ (TH only)
-- Phase 0 (โดเมน+โครงสร้าง) ปิดแล้ว / **Phase 1 รอเริ่ม**: ระบบสแกนตั๋วเข้า-ออก (check-in)
+- Phase 0 (โดเมน+โครงสร้าง) และ Phase 1 (ระบบสแกนตั๋ว/เช็คอิน) ปิดแล้ว
 
 ## งานรัดความปลอดภัยที่ทำไปแล้ว (v1.0.1)
 
@@ -38,10 +38,20 @@
 10. Rate limit PATCH /api/bookings/:code/cancel = 5 ครั้ง/15 นาที/IP กัน brute force เบอร์โทรยกเลิกตั๋วผู้อื่น (โค้ดตั๋วโชว์ public); admin ยกเว้น; ทดสอบได้ 403 x5 + 429 ตามคาด
 11. ที่เหลือระยะยาว: ย้าย rate-limit/lockout state ลง Upstash (อยู่รอด redeploy), เพิ่ม ticket code entropy, atomic Lua script บน Upstash REST (รองรับ MULTI/EXEC + EVAL) — ผูกกับ Phase 1.5
 
-## Phase 1.5 ที่ทำไปแล้ว (v1.0.3)
+## Phase 1.5 ที่ทำไปแล้ว (v1.0.4)
 
 12. **`GET /api/bookings/search?code=BG-XXXXXX&phone=0XXXXXXXXX`** — ค้นตั๋วข้ามเครื่อง (ไม่ต้อง login, ไม่ต้อง localStorage) แก้ปัญหา "เปลี่ยนมือถือ/เคลียร์ browser แล้วตั๋วหาย"; ต้องรู้ทั้งรหัสตั๋ว + เบอร์โทร (เบอร์เป็น shared secret เพิ่ม); คืนเฉพาะ public view (ไม่มี PII เพิ่ม); validate: `code` ต้องตรง `^BG-[0-9A-F]{6,12}$`, `phone` ต้องตรง `^0\d{8,9}$`; ทดสอบบนเครื่อง local ผ่าน 5/5 เคส (200, 404 code ไม่เจอ, 404 phone ไม่ตรง, 400 format ผิด, 400 phone format ผิด) — admin **ไม่ต้องใช้** endpoint นี้ ใช้ `/api/bookings` ตามเดิม
-13. ค้างต่อ: ผูก UI เข้ากับหน้า "ตั๋วของฉัน" (สร้างช่อง search ด้วย code+phone), เพิ่ม Lua script บน Upstash กัน double-booking ข้าม instance, ย้าย rate-limit/lockout state ลง Redis (อยู่รอด redeploy)
+13. **UI ค้นหาตั๋วข้ามเครื่อง (เสร็จสมบูรณ์)**: เพิ่มการ์ดค้นหาตั๋วข้ามเครื่องในหน้า "ตั๋วของฉัน" (index.html, script.js, style.css) ค้นหาด้วย code + phone เมื่อพบตั๋วจะบันทึกลง localStorage mirror และแสดงผลในรายการตั๋วทันที
+
+## Phase 1 ที่ทำไปแล้ว (v1.1.0)
+
+14. **ระบบสแกนตั๋วเข้า-ออกรถ (Check-in System)**:
+    - Backend: API `PATCH /api/bookings/:code/checkin` (admin only) เปลี่ยนสถานะเป็น `checked_in` และบันทึก `checkedInAt` พร้อมป้องกันการเช็คอินตั๋วที่ยกเลิกไปแล้ว หรือเช็คอินซ้ำ (409)
+    - Backend: API `PATCH /api/bookings/:code/uncheckin` (admin only) ยกเลิกสถานะเช็คอินกรณีพนักงานกดผิด
+    - Backend: ป้องกันการยกเลิกตั๋ว (`/cancel`) เมื่อตั๋วขึ้นรถไปแล้ว (`checked_in`)
+    - Admin UI: เพิ่มแท็บ "สแกนตั๋ว / เช็คอิน" รองรับการยิงบาร์โค้ด QR หรือพิมพ์รหัสตั๋ว แสดงการ์ดรายละเอียดตั๋วครบถ้วนพร้อมปุ่มเช็คอิน และตารางประวัติเช็คอินขึ้นรถล่าสุด
+    - Public UI: หน้า "ตั๋วของฉัน" แสดงสถานะ "ขึ้นรถแล้ว" (`status-checkedin`) พร้อมเวลาขึ้นรถ
+15. ค้างต่อ: เพิ่ม Lua script บน Upstash กัน double-booking ข้าม instance, ย้าย rate-limit/lockout state ลง Redis (อยู่รอด redeploy)
 
 ## กติกาโปรเจกต์ (ห้ามลืม)
 
@@ -53,11 +63,9 @@
 
 ## ค้างอยู่ / Next
 
-1. Acceptance test Phase 0: จองจริง 1 รอบผ่าน busgo.dpdns.org + เช็คใน /admin
-2. **Phase 1**: ticket scan/check-in system (bump เป็น 1.1.0)
-3. **Phase 1.5 (backend ✓, UI ค้าง)**: API `/api/bookings/search` ทำเสร็จแล้ว v1.0.3 — เหลือผูก UI เข้ากับหน้า "ตั๋วของฉัน" (เพิ่มช่อง search code+phone)
-4. Domain ต่ออายุฟรีที่ DigitalPlat ก่อน **2027-08-26**
-5. แนะนำ user: ลบไฟล์ pss.txt ในเครื่องทิ้ง + เปลี่ยนรหัสที่ใช้ร่วมกันที่อื่น
+1. Acceptance test: ทดสอบการจองจริง 1 รอบผ่าน busgo.dpdns.org + สแกนเช็คอินใน /admin
+2. Domain ต่ออายุฟรีที่ DigitalPlat ก่อน **2027-08-26**
+3. แนะนำ user: ลบไฟล์ pss.txt ในเครื่องทิ้ง + เปลี่ยนรหัสที่ใช้ร่วมกันที่อื่น
 
 ## โครงสร้างไฟล์สำคัญ
 

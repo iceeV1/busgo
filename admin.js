@@ -1,8 +1,8 @@
-﻿"use strict";
+"use strict";
 
 /* ================= HELPERS ================= */
 const $ = (id) => document.getElementById(id);
-const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const esc = (t) => (t == null ? "" : String(t)).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const TYPE_INFO = { vip: { label: "VIP", seats: 32, cls: "badge-vip" }, air: { label: "ปรับอากาศ", seats: 44, cls: "badge-air" }, eco: { label: "ธรรมดา", seats: 48, cls: "badge-eco" } };
 
 function toast(msg, isError = false) {
@@ -67,6 +67,7 @@ let buses = [];
 let bookings = [];
 let promos = [];
 let editingBusId = null;
+let activeInspectedCode = null;
 
 async function api(path, opts = {}) {
   const r = await fetch(path, {
@@ -110,27 +111,36 @@ document.querySelectorAll(".admin-tabs .nav-link").forEach((btn) =>
   btn.addEventListener("click", () => {
     document.querySelectorAll(".admin-tabs .nav-link").forEach((b) =>
       b.classList.toggle("active", b === btn));
-    ["dash", "bookings", "buses", "promos"].forEach((id) =>
+    ["dash", "checkin", "bookings", "buses", "promos"].forEach((id) =>
       $("tab-" + id).classList.toggle("hidden", id !== btn.dataset.tab));
+    if (btn.dataset.tab === "checkin") {
+      renderCheckinLogs();
+      const inp = $("ciInput");
+      if (inp) inp.focus();
+    }
   })
 );
 
 /* ================= DASHBOARD ================= */
 function renderDash() {
-  const active = bookings.filter((b) => b.status === "active");
-  const revenue = active.reduce((s, b) => s + b.total, 0);
+  const activeOrChecked = bookings.filter((b) => b.status === "active" || b.status === "checked_in");
+  const checkedIn = bookings.filter((b) => b.status === "checked_in");
+  const revenue = activeOrChecked.reduce((s, b) => s + b.total, 0);
   const today = new Date().toISOString().slice(0, 10);
+  const todayBookings = bookings.filter((b) => b.date === today && (b.status === "active" || b.status === "checked_in"));
+  const todayChecked = bookings.filter((b) => b.date === today && b.status === "checked_in");
 
   $("statCards").innerHTML = `
     <div class="stat-card hl"><div class="sc-icon"></div><div class="sc-value">${bookings.length}</div><div class="sc-label">การจองทั้งหมด</div></div>
-    <div class="stat-card green"><div class="sc-icon"></div><div class="sc-value">${active.length}</div><div class="sc-label">ตั๋วที่ยืนยันแล้ว</div></div>
+    <div class="stat-card green"><div class="sc-icon"></div><div class="sc-value">${activeOrChecked.length}</div><div class="sc-label">ตั๋วที่ใช้งานได้ (ยืนยัน/ขึ้นรถ)</div></div>
+    <div class="stat-card purple"><div class="sc-icon"></div><div class="sc-value">${checkedIn.length}</div><div class="sc-label">เช็คอินขึ้นรถแล้ว</div></div>
     <div class="stat-card gold"><div class="sc-icon"></div><div class="sc-value">฿${revenue.toLocaleString()}</div><div class="sc-label">รายได้รวม</div></div>
     <div class="stat-card"><div class="sc-icon"></div><div class="sc-value">${buses.length}</div><div class="sc-label">เที่ยวรถในระบบ</div></div>
-    <div class="stat-card"><div class="sc-icon"></div><div class="sc-value">${bookings.filter((b) => b.date === today && b.status === "active").length}</div><div class="sc-label">ตั๋ววันนี้</div></div>`;
+    <div class="stat-card"><div class="sc-icon"></div><div class="sc-value">${todayChecked.length}/${todayBookings.length}</div><div class="sc-label">เช็คอินวันนี้ / ตั๋ววันนี้</div></div>`;
 
   // เส้นทางยอดนิยม
   const byRoute = {};
-  active.forEach((b) => {
+  activeOrChecked.forEach((b) => {
     const bus = buses.find((x) => x.id === b.busId);
     const key = bus ? `${bus.from} → ${bus.to}` : "(ไม่พบเส้นทาง)";
     byRoute[key] = (byRoute[key] || 0) + b.seats.length;
@@ -144,6 +154,156 @@ function renderDash() {
         <div class="rb-track"><div class="rb-fill" style="width:${Math.round((n / max) * 100)}%"></div></div>
       </div>`).join("")
     : `<p class="muted">ยังไม่มีข้อมูลการจอง</p>`;
+}
+
+/* ================= CHECK-IN / SCANNER ================= */
+function inspectTicket(code) {
+  const q = String(code || "").trim().toUpperCase();
+  if (!q) return;
+  activeInspectedCode = q;
+
+  const bk = bookings.find((b) => b.code === q);
+  const card = $("ciResultCard");
+  if (!card) return;
+
+  if (!bk) {
+    card.classList.remove("hidden");
+    card.innerHTML = `
+      <div class="ci-empty">
+        <div class="ci-status-badge status-cancelled">ไม่พบรหัสตั๋ว ${esc(q)}</div>
+        <p class="muted small" style="margin:10px 0 0">กรุณาตรวจสอบความถูกต้องของรหัสตั๋ว หรือเช็คในแท็บ "การจอง"</p>
+      </div>`;
+    return;
+  }
+
+  const bus = buses.find((b) => b.id === bk.busId);
+  const route = bus ? `${bus.from} → ${bus.to}` : "(ไม่พบเส้นทาง)";
+  const depart = bus ? bus.depart : "—";
+  const statusCls = bk.status === "checked_in" ? "status-checkedin" : bk.status === "active" ? "status-active" : "status-cancelled";
+  const statusLabel = bk.status === "checked_in" ? "ขึ้นรถแล้ว (เช็คอินแล้ว)" : bk.status === "active" ? "พร้อมเช็คอิน (ยังไม่ขึ้นรถ)" : "ยกเลิกแล้ว";
+
+  card.classList.remove("hidden");
+  card.innerHTML = `
+    <div class="ci-card-inner">
+      <div class="ci-card-head">
+        <div>
+          <span class="ci-code">${esc(bk.code)}</span>
+          <span class="status-pill ${statusCls}" style="margin-left:10px">${statusLabel}</span>
+        </div>
+        ${bk.checkedInAt ? `<span class="muted small">เวลาเช็คอิน: <b>${new Date(bk.checkedInAt).toLocaleTimeString("th-TH")}</b> (${fmtDate(bk.checkedInAt.slice(0, 10))})</span>` : ""}
+      </div>
+      <div class="ci-grid">
+        <div><small class="muted">ผู้โดยสาร</small><br /><b>${esc(bk.name)}</b> (โทร ${esc(bk.phone)})</div>
+        <div><small class="muted">เส้นทาง / รอบรถ</small><br /><b>${esc(route)}</b> (${bus ? TYPE_INFO[bus.type]?.label || bus.type : "—"})</div>
+        <div><small class="muted">วันที่ / เวลาออก</small><br /><b>${fmtDate(bk.date)}</b> · ออก <b>${depart}</b></div>
+        <div><small class="muted">ที่นั่ง</small><br /><b class="ci-seats">${bk.seats.join(", ")}</b> (${bk.seats.length} ที่นั่ง)</div>
+        <div><small class="muted">ยอดชำระ</small><br /><b>฿${Number(bk.total).toLocaleString()}</b> (${bk.payMethod || "—"})</div>
+        ${bk.note ? `<div><small class="muted">หมายเหตุ</small><br />${esc(bk.note)}</div>` : "<div></div>"}
+      </div>
+      <div class="ci-actions">
+        ${bk.status === "active"
+          ? `<button class="btn btn-primary ci-main-btn" data-do-checkin="${esc(bk.code)}">ยืนยันเช็คอินขึ้นรถ</button>`
+          : bk.status === "checked_in"
+          ? `<button class="btn btn-ghost ci-undo-btn" data-undo-checkin="${esc(bk.code)}">ยกเลิกสถานะเช็คอิน (Undo)</button>`
+          : `<span class="muted small">ตั๋วถูกยกเลิก ไม่สามารถเช็คอินได้</span>`
+        }
+      </div>
+    </div>`;
+
+  const doBtn = card.querySelector("[data-do-checkin]");
+  if (doBtn) {
+    doBtn.addEventListener("click", () => handleCheckin(bk.code));
+  }
+  const undoBtn = card.querySelector("[data-undo-checkin]");
+  if (undoBtn) {
+    undoBtn.addEventListener("click", () => handleUndoCheckin(bk.code));
+  }
+}
+
+async function handleCheckin(code) {
+  try {
+    const res = await api(`/api/bookings/${encodeURIComponent(code)}/checkin`, { method: "PATCH" });
+    toast(`เช็คอินตั๋ว ${code} สำเร็จ`);
+    await refresh();
+    inspectTicket(code);
+    const inp = $("ciInput");
+    if (inp) { inp.value = ""; inp.focus(); }
+  } catch (e) {
+    toast(e.message || "เช็คอินไม่สำเร็จ", true);
+  }
+}
+
+async function handleUndoCheckin(code) {
+  if (!confirm(`ต้องการยกเลิกสถานะเช็คอินของตั๋ว ${code} ใช่หรือไม่?`)) return;
+  try {
+    const res = await api(`/api/bookings/${encodeURIComponent(code)}/uncheckin`, { method: "PATCH" });
+    toast(`ยกเลิกสถานะเช็คอิน ${code} แล้ว`);
+    await refresh();
+    inspectTicket(code);
+  } catch (e) {
+    toast(e.message || "ไม่สามารถยกเลิกสถานะได้", true);
+  }
+}
+
+function renderCheckinLogs() {
+  const today = new Date().toISOString().slice(0, 10);
+  const checkedInList = bookings
+    .filter((b) => b.status === "checked_in")
+    .sort((a, b) => (b.checkedInAt || "").localeCompare(a.checkedInAt || ""));
+
+  const todayChecked = checkedInList.filter((b) => b.date === today);
+  const todayTotalActive = bookings.filter((b) => b.date === today && (b.status === "active" || b.status === "checked_in"));
+
+  const statsEl = $("ciStatsToday");
+  if (statsEl) {
+    const pct = todayTotalActive.length ? Math.round((todayChecked.length / todayTotalActive.length) * 100) : 0;
+    statsEl.textContent = `เช็คอินวันนี้แล้ว ${todayChecked.length} / ${todayTotalActive.length} ตั๋ว (${pct}%)`;
+  }
+
+  const table = $("ciLogTable");
+  if (!table) return;
+
+  table.innerHTML = `
+    <thead><tr>
+      <th>เวลาเช็คอิน</th><th>รหัสตั๋ว</th><th>เส้นทาง</th><th>รอบรถ</th>
+      <th>ผู้โดยสาร</th><th>ที่นั่ง</th><th>สถานะ</th><th>จัดการ</th>
+    </tr></thead>
+    <tbody>${checkedInList.length ? checkedInList.slice(0, 20).map((bk) => {
+      const bus = buses.find((x) => x.id === bk.busId);
+      const route = bus ? `${bus.from} → ${bus.to}` : "(ไม่พบเส้นทาง)";
+      const timeStr = bk.checkedInAt ? new Date(bk.checkedInAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
+      return `<tr>
+        <td><b>${timeStr}</b><br /><span class="muted small">${fmtDate(bk.date)}</span></td>
+        <td class="cell-code"><button type="button" class="link-btn" data-view-code="${esc(bk.code)}">${esc(bk.code)}</button></td>
+        <td>${esc(route)}</td>
+        <td>${bus ? bus.depart : "—"}</td>
+        <td>${esc(bk.name)}<br /><span class="muted small">${esc(bk.phone)}</span></td>
+        <td>${bk.seats.join(", ")}</td>
+        <td><span class="status-pill status-checkedin">ขึ้นรถแล้ว</span></td>
+        <td>
+          <button class="btn-sm btn-ghosty" data-log-undo="${esc(bk.code)}">ยกเลิกเช็คอิน</button>
+        </td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="8" style="text-align:center;padding:34px;color:var(--muted)">ยังไม่มีประวัติการเช็คอิน</td></tr>`}</tbody>`;
+
+  table.querySelectorAll("[data-log-undo]").forEach((btn) =>
+    btn.addEventListener("click", () => handleUndoCheckin(btn.dataset.logUndo)));
+
+  table.querySelectorAll("[data-view-code]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      $("ciInput").value = btn.dataset.viewCode;
+      inspectTicket(btn.dataset.viewCode);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }));
+}
+
+const ciForm = $("checkinForm");
+if (ciForm) {
+  ciForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const val = $("ciInput").value.trim();
+    if (val) inspectTicket(val);
+  });
 }
 
 /* ================= BOOKINGS TABLE ================= */
@@ -169,8 +329,13 @@ function renderBookings() {
     <tbody>${list.length ? list.map((bk) => {
       const bus = buses.find((x) => x.id === bk.busId);
       const route = bus ? `${bus.from} → ${bus.to}` : "(ไม่พบเส้นทาง)";
-      const active = bk.status === "active";
-      return `<tr class="${active ? "" : "cancelled-row"}">
+      const isCancelled = bk.status === "cancelled";
+      const isCheckedIn = bk.status === "checked_in";
+      const isActive = bk.status === "active";
+      const statusCls = isCheckedIn ? "status-checkedin" : isActive ? "status-active" : "status-cancelled";
+      const statusText = isCheckedIn ? "ขึ้นรถแล้ว" : isActive ? "ยืนยันแล้ว" : "ยกเลิก";
+
+      return `<tr class="${isCancelled ? "cancelled-row" : ""}">
         <td class="cell-code">${esc(bk.code)}</td>
         <td>${esc(route)}</td>
         <td>${fmtDate(bk.date)}</td>
@@ -178,14 +343,20 @@ function renderBookings() {
         <td>${esc(bk.name)}<br /><span class="muted small">${esc(bk.phone)}</span></td>
         <td>${bk.seats.join(", ")}</td>
         <td><b>฿${bk.total.toLocaleString()}</b></td>
-        <td><span class="status-pill ${active ? "status-active" : "status-cancelled"}">${active ? "ยืนยันแล้ว" : "ยกเลิก"}</span></td>
+        <td><span class="status-pill ${statusCls}">${statusText}</span></td>
         <td><div class="actions">
-          ${active ? `<button class="btn-sm btn-warn" data-cancel="${esc(bk.code)}">ยกเลิก</button>` : ""}
+          ${isActive ? `<button class="btn-sm btn-primary" data-ci="${esc(bk.code)}">เช็คอิน</button>` : ""}
+          ${isCheckedIn ? `<button class="btn-sm btn-ghosty" data-unci="${esc(bk.code)}">ยกเลิกเช็คอิน</button>` : ""}
+          ${isActive ? `<button class="btn-sm btn-warn" data-cancel="${esc(bk.code)}">ยกเลิก</button>` : ""}
           <button class="btn-sm btn-danger" data-del="${esc(bk.code)}">ลบ</button>
         </div></td>
       </tr>`;
     }).join("") : `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">ไม่พบรายการจอง</td></tr>`}</tbody>`;
 
+  $("bkTable").querySelectorAll("[data-ci]").forEach((b) =>
+    b.addEventListener("click", () => handleCheckin(b.dataset.ci)));
+  $("bkTable").querySelectorAll("[data-unci]").forEach((b) =>
+    b.addEventListener("click", () => handleUndoCheckin(b.dataset.unci)));
   $("bkTable").querySelectorAll("[data-cancel]").forEach((b) =>
     b.addEventListener("click", async () => {
       if (!confirm(`ยืนยันการยกเลิกตั๋ว ${b.dataset.cancel}?`)) return;
@@ -203,13 +374,13 @@ function renderBookings() {
 $("bkRefresh").addEventListener("click", () => { refresh(); toast("รีเฟรชข้อมูลแล้ว"); });
 
 $("csvBtn").addEventListener("click", () => {
-  const head = ["code", "route_from", "route_to", "date", "depart", "name", "phone", "seats", "total", "status"];
+  const head = ["code", "route_from", "route_to", "date", "depart", "name", "phone", "seats", "total", "status", "checked_in_at"];
   const lines = [head.join(",")];
   getFilteredBookings().forEach((bk) => {
     const bus = buses.find((x) => x.id === bk.busId) || {};
     lines.push([bk.code, bus.from || "", bus.to || "", bk.date, bus.depart || "",
       `"${(bk.name || "").replace(/"/g, '""')}"`, bk.phone,
-      `"${bk.seats.join(" ")}"`, bk.total, bk.status].join(","));
+      `"${bk.seats.join(" ")}"`, bk.total, bk.status, bk.checkedInAt || ""].join(","));
   });
   const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
@@ -303,6 +474,8 @@ async function refresh() {
     api("/api/promos"),
   ]);
   renderDash();
+  renderCheckinLogs();
+  if (activeInspectedCode) inspectTicket(activeInspectedCode);
   renderBookings();
   renderBuses();
   renderPromos();
