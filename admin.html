@@ -97,15 +97,34 @@
         <form id="busForm" class="info-form form-grid" onsubmit="return false">
           <label>ต้นทาง<input id="fFrom" required placeholder="เช่น กรุงเทพฯ" /></label>
           <label>ปลายทาง<input id="fTo" required placeholder="เช่น เชียงใหม่" /></label>
-          <label>เวลาออก<input type="time" id="fDepart" lang="th" required /></label>
-          <label>เวลาถึง<input type="time" id="fArrive" lang="th" required /></label>
+          <label>เวลาออก
+            <input type="hidden" id="fDepart" />
+            <div class="time-field" data-time="fDepart">
+              <span class="tf-icon">🕐</span>
+              <select class="tf-hour" aria-label="ชั่วโมง"></select>
+              <span class="tf-colon">:</span>
+              <select class="tf-min" aria-label="นาที"></select>
+              <span class="tf-suffix">น.</span>
+            </div>
+          </label>
+          <label>เวลาถึง
+            <input type="hidden" id="fArrive" />
+            <div class="time-field" data-time="fArrive">
+              <span class="tf-icon">🕐</span>
+              <select class="tf-hour" aria-label="ชั่วโมง"></select>
+              <span class="tf-colon">:</span>
+              <select class="tf-min" aria-label="นาที"></select>
+              <span class="tf-suffix">น.</span>
+            </div>
+          </label>
           <label>ระยะเวลา<input id="fDuration" required placeholder="เช่น 9 ชม. 30 นาที" /></label>
           <label>ชนิดการเดินทาง
-            <select id="fMode">
-              <option value="bus">รถบัส</option>
-              <option value="train">รถไฟ</option>
-              <option value="ferry">เรือเฟอร์รี่</option>
-            </select>
+            <input type="hidden" id="fMode" value="bus" />
+            <div class="seg-group" id="modeSeg">
+              <button type="button" class="seg-btn active" data-mode="bus">🚌 รถบัส</button>
+              <button type="button" class="seg-btn" data-mode="train">🚆 รถไฟ</button>
+              <button type="button" class="seg-btn" data-mode="ferry">⛴️ เรือเฟอร์รี่</button>
+            </div>
           </label>
           <label>ประเภทรถ
             <select id="fType">

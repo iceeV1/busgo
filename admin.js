@@ -19,6 +19,46 @@ function fmtDate(iso) {
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`;
 }
 
+/* ================= CUSTOM 24H TIME PICKER ================= */
+/* แทน <input type="time"> เดิม เพราะเบราว์เซอร์แสดง AM/PM ตาม locale ของเครื่อง
+   ค่าจริงรูปแบบ "HH:MM" เก็บใน hidden input ตาม id ที่ระบุใน data-time */
+function pad2(n) { return String(n).padStart(2, "0"); }
+function initTimeFields() {
+  document.querySelectorAll(".time-field").forEach((tf) => {
+    const hiddenId = tf.dataset.time;
+    const hSel = tf.querySelector(".tf-hour");
+    const mSel = tf.querySelector(".tf-min");
+    for (let h = 0; h < 24; h++) hSel.add(new Option(pad2(h), pad2(h)));
+    for (let m = 0; m < 60; m += 5) mSel.add(new Option(pad2(m), pad2(m)));
+    const sync = () => { $(hiddenId).value = hSel.value + ":" + mSel.value; };
+    hSel.addEventListener("change", sync);
+    mSel.addEventListener("change", sync);
+  });
+}
+function setTimeValue(hiddenId, val) {
+  const tf = document.querySelector(`.time-field[data-time="${hiddenId}"]`);
+  if (!tf) return;
+  const [hh, mm] = String(val || "08:00").split(":");
+  tf.querySelector(".tf-hour").value = pad2(Number(hh) || 0);
+  tf.querySelector(".tf-min").value = mm && Number(mm) % 5 === 0 ? pad2(Number(mm)) : "00";
+  $(hiddenId).value = tf.querySelector(".tf-hour").value + ":" + tf.querySelector(".tf-min").value;
+}
+
+/* ================= TRAVEL MODE SEGMENTED ================= */
+function syncModeSeg() {
+  const v = $("fMode").value || "bus";
+  $("modeSeg").querySelectorAll(".seg-btn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.mode === v));
+}
+document.querySelectorAll("#modeSeg .seg-btn").forEach((b) =>
+  b.addEventListener("click", () => {
+    $("fMode").value = b.dataset.mode;
+    syncModeSeg();
+  }));
+initTimeFields();
+setTimeValue("fDepart", "08:00");
+setTimeValue("fArrive", "12:00");
+
 /* ================= STATE / API ================= */
 let KEY = sessionStorage.getItem("bg_admin_key") || "";
 let buses = [];
@@ -218,12 +258,15 @@ function openBusForm(editId) {
     const bus = buses.find((x) => x.id === editId);
     if (!bus) return;
     $("fFrom").value = bus.from; $("fTo").value = bus.to;
-    $("fDepart").value = bus.depart; $("fArrive").value = bus.arrive;
+    setTimeValue("fDepart", bus.depart); setTimeValue("fArrive", bus.arrive);
     $("fDuration").value = bus.duration; $("fType").value = bus.type;
     $("fMode").value = bus.mode || "bus";
+    syncModeSeg();
     $("fPrice").value = bus.price;
   } else {
     $("busForm").reset();
+    setTimeValue("fDepart", "08:00"); setTimeValue("fArrive", "12:00");
+    syncModeSeg();
   }
   $("busModal").classList.remove("hidden");
 }
