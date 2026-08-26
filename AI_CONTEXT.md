@@ -83,9 +83,10 @@
 
 ## ค้างอยู่ / Next
 
-1. Acceptance test: ทดสอบการจองจริง 1 รอบผ่าน busgo.dpdns.org + สแกนเช็คอินใน /admin
+1. ~~Acceptance test~~ **เสร็จแล้ว 2026-08-26**: deploy v1.1.3 (build 561d955) ยืนยันที่ /api/version + ทดสอบ production ผ่าน 6/6 (จอง B01 → public view ซ่อน PII → cancel เบอร์ผิด 403 → cancel เบอร์ถูก → search ข้ามเครื่อง) — เหลือ user ลองสแกนเช็คอินใน /admin ด้วยตัวเอง (ไม่มี ADMIN_KEY ฝั่ง dev)
 2. Domain ต่ออายุฟรีที่ DigitalPlat ก่อน **2027-08-26**
 3. แนะนำ user: ลบไฟล์ pss.txt ในเครื่องทิ้ง + เปลี่ยนรหัสที่ใช้ร่วมกันที่อื่น
+4. Tooling: เครื่องนี้ไม่มี git ใน PATH — ใช้ MinGit portable ที่ `%LOCALAPPDATA%\MinGit\cmd\git.exe` ( credential GitHub ผูกกับ Windows Credential Manager ใช้ push ได้แล้ว)
 
 ## โครงสร้างไฟล์สำคัญ
 
