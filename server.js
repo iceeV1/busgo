@@ -222,7 +222,8 @@ function sendFile(res, filePath) {
   if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return send(res, 403, { error: "Forbidden" });
   /* บล็อกไฟล์ sensitive ไม่ให้ถูก serve เป็น static เด็ดขาด */
   const base = path.basename(full).toLowerCase();
-  if (base === "pss.txt" || base.endsWith(".env") || base.startsWith(".") || full === DB_PATH)
+  if (base === "pss.txt" || base.endsWith(".env") || base.startsWith(".") || full === DB_PATH ||
+      base === "server.js" || base === "render.yaml" || base === "ai_context.md" || base.endsWith(".md"))
     return send(res, 403, { error: "Forbidden" });
   if (!fs.existsSync(full) || !fs.statSync(full).isFile()) return send(res, 404, { error: "Not Found" });
   res.writeHead(200, {
