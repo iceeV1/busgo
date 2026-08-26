@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.1.0"; // เวอร์ชันระบบ — Phase 1 (ticket scan / check-in system)
+const APP_SEMVER = "1.1.1"; // เวอร์ชันระบบ — Security Hardening (Path traversal & rate limit fixes)
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -238,18 +238,32 @@ function send(res, status, obj) {
 }
 function sendFile(res, filePath) {
   const full = path.normalize(filePath);
-  /* กัน path traversal: ต้องอยู่ใน ROOT เท่านั้น (เช็คด้วย relative กันกรณี prefix ซ้ำ เช่น /app vs /app2) */
+  /* กัน path traversal: ต้องอยู่ใน ROOT เท่านั้น */
   const rel = path.relative(ROOT, full);
-  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return send(res, 403, { error: "Forbidden" });
-  /* บล็อกไฟล์ sensitive ไม่ให้ถูก serve เป็น static เด็ดขาด */
-  const base = path.basename(full).toLowerCase();
-  if (base === "pss.txt" || base.endsWith(".env") || base.startsWith(".") || full === DB_PATH ||
-      base === "server.js" || base === "render.yaml" || base === "ai_context.md" || base.endsWith(".md"))
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel) || rel.includes("\0"))
     return send(res, 403, { error: "Forbidden" });
+
+  /* ตรวจสอบทุก segment ใน path — ห้ามเข้าโฟลเดอร์ซ่อน (.git, data, scratch ฯลฯ) */
+  const segments = rel.split(/[/\\]/);
+  if (segments.some((s) => s.startsWith(".") || s.toLowerCase() === "data" || s.toLowerCase() === "scratch"))
+    return send(res, 403, { error: "Forbidden" });
+
+  /* Whitelist นามสกุลไฟล์ที่อนุญาตให้เปิดเผยทางเว็บ */
+  const ext = path.extname(full).toLowerCase();
+  const ALLOWED_EXTS = new Set([".html", ".css", ".js", ".json", ".svg", ".png", ".jpg", ".jpeg", ".ico", ".webp"]);
+  if (!ALLOWED_EXTS.has(ext)) return send(res, 403, { error: "Forbidden" });
+
+  /* บล็อกไฟล์สำคัญ โค้ด backend และสคริปต์รันระบบ */
+  const base = path.basename(full).toLowerCase();
+  if (base === "server.js" || base === "render.yaml" || base === "start.bat" || base === "pss.txt" ||
+      base.endsWith(".env") || base.endsWith(".md") || base.endsWith(".bat") || base.endsWith(".ps1") ||
+      base.endsWith(".sh") || full === DB_PATH)
+    return send(res, 403, { error: "Forbidden" });
+
   if (!fs.existsSync(full) || !fs.statSync(full).isFile()) return send(res, 404, { error: "Not Found" });
   res.writeHead(200, {
     ...SECURITY_HEADERS,
-    "Content-Type": MIME[path.extname(full).toLowerCase()] || "application/octet-stream",
+    "Content-Type": MIME[ext] || "application/octet-stream",
     "Cache-Control": "no-cache",
   });
   const stream = fs.createReadStream(full);
@@ -262,9 +276,26 @@ function sendFile(res, filePath) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let raw = "";
-    req.on("data", (c) => { raw += c; if (raw.length > 1e5) req.destroy(); }); // จำกัด body 100KB กันถล่ม RAM
-    req.on("end", () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch (e) { reject(new Error("JSON ไม่ถูกต้อง")); } });
-    req.on("error", reject);
+    let tooLarge = false;
+    req.on("data", (c) => {
+      raw += c;
+      if (raw.length > 1e5) {
+        tooLarge = true;
+        req.destroy(new Error("Payload Too Large"));
+      }
+    });
+    req.on("end", () => {
+      if (tooLarge) return reject(new Error("ขนาดข้อมูลเกินกำหนด (สูงสุด 100KB)"));
+      try {
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch {
+        reject(new Error("JSON ไม่ถูกต้อง"));
+      }
+    });
+    req.on("error", (err) => {
+      if (tooLarge) return reject(new Error("ขนาดข้อมูลเกินกำหนด (สูงสุด 100KB)"));
+      reject(err);
+    });
   });
 }
 /* เทียบรหัสแบบ timing-safe กัน timing attack */
@@ -395,22 +426,34 @@ async function handleApi(req, res, p) {
     const body = await readBody(req);
     const bus = db.buses.find((x) => x.id === body.busId);
     if (!bus) return send(res, 400, { error: "ไม่พบเที่ยวรถที่เลือก" });
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date || "")) return send(res, 400, { error: "รูปแบบวันที่ไม่ถูกต้อง" });
+
+    // ตรวจสอบความถูกต้องของวันที่ (ต้องเป็นวันที่จริง ไม่ใช่อดีต และไม่เกิน 180 วัน)
+    const dateStr = String(body.date || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return send(res, 400, { error: "รูปแบบวันที่ไม่ถูกต้อง" });
+    const targetDate = new Date(dateStr + "T00:00:00Z");
+    if (isNaN(targetDate.getTime()) || targetDate.toISOString().slice(0, 10) !== dateStr)
+      return send(res, 400, { error: "วันที่ไม่ถูกต้องตามปฏิทิน" });
+    const today = new Date();
+    const minDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1); // เผื่อ timezone เล็กน้อย
+    const maxDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 180); // ล่วงหน้าสูงสุด 6 เดือน
+    if (targetDate < minDate) return send(res, 400, { error: "ไม่สามารถจองรอบรถในอดีตได้" });
+    if (targetDate > maxDate) return send(res, 400, { error: "สามารถจองล่วงหน้าได้ไม่เกิน 180 วัน" });
 
     const seats = Array.isArray(body.seats) ? [...new Set(body.seats.map(Number))] : [];
     const totalSeats = bus.seats || TYPE_INFO[bus.type].seats;
     if (!seats.length) return send(res, 400, { error: "กรุณาเลือกที่นั่งอย่างน้อย 1 ที่" });
+    if (seats.length > 10) return send(res, 400, { error: "สามารถเลือกจองได้สูงสุด 10 ที่นั่งต่อครั้ง" });
     if (seats.some((s) => !Number.isInteger(s) || s < 1 || s > totalSeats))
       return send(res, 400, { error: `หมายเลขที่นั่งต้องอยู่ระหว่าง 1-${totalSeats}` });
 
-    const name = String(body.name || "").trim();
+    const name = String(body.name || "").trim().slice(0, 80);
     const phone = String(body.phone || "").replace(/[-\s]/g, "");
-    if (name.length < 3) return send(res, 400, { error: "กรุณากรอกชื่อ–นามสกุล" });
+    if (name.length < 3) return send(res, 400, { error: "กรุณากรอกชื่อ–นามสกุล (3-80 ตัวอักษร)" });
     if (!/^0\d{8,9}$/.test(phone)) return send(res, 400, { error: "เบอร์โทรศัพท์ไม่ถูกต้อง" });
 
     // ตรวจที่นั่งซ้ำกับการจองที่ยัง active หรือ checked_in
     const taken = new Set(
-      db.bookings.filter((k) => k.busId === bus.id && k.date === body.date && (k.status === "active" || k.status === "checked_in"))
+      db.bookings.filter((k) => k.busId === bus.id && k.date === dateStr && (k.status === "active" || k.status === "checked_in"))
         .flatMap((k) => k.seats)
     );
     const conflict = seats.find((s) => taken.has(s));
@@ -431,7 +474,7 @@ async function handleApi(req, res, p) {
     const booking = {
       code: "BG-" + crypto.randomBytes(3).toString("hex").toUpperCase(), // สุ่มแบบ unguessable กันเดารหัสตั๋ว
       busId: bus.id,
-      date: body.date,
+      date: dateStr,
       seats,
       name, phone,
       note: String(body.note || "").slice(0, 200),
@@ -449,7 +492,8 @@ async function handleApi(req, res, p) {
 
   let mb;
   if ((mb = p.match(/^\/api\/bookings\/([^/]+)(\/cancel|\/checkin|\/uncheckin)?$/))) {
-    const code = decodeURIComponent(mb[1]);
+    const code = decodeURIComponent(mb[1]).trim().toUpperCase();
+    if (!/^BG-[0-9A-F]{6,12}$/.test(code)) return send(res, 400, { error: "รูปแบบรหัสตั๋วไม่ถูกต้อง" });
     const bk = db.bookings.find((x) => x.code === code);
     if (!bk) return send(res, 404, { error: "ไม่พบรายการจองนี้" });
     const action = mb[2];
@@ -578,6 +622,8 @@ const server = http.createServer(async (req, res) => {
       if (!rateLimit(req, res, "api:" + ip, 120, 60 * 1000)) return;
       // สร้างการจอง: 5 ครั้ง/10 นาที ต่อ IP (กันสแปมจองเป็นจำนวนมาก)
       if (p === "/api/bookings" && m === "POST" && !rateLimit(req, res, "book:" + ip, 5, 10 * 60 * 1000)) return;
+      // ค้นหาตั๋วข้ามเครื่อง: 10 ครั้ง/5 นาที ต่อ IP (กัน brute force เบอร์โทร)
+      if (p === "/api/bookings/search" && !isAdmin(req) && !rateLimit(req, res, "search:" + ip, 10, 5 * 60 * 1000)) return;
       // เช็ครหัส admin: 10 ครั้ง/5 นาที (กัน brute force)
       if (p === "/api/admin/check" && !rateLimit(req, res, "auth:" + ip, 10, 5 * 60 * 1000)) return;
       /* [v1.0.2] ยกเลิกการจอง: 5 ครั้ง/15 นาที ต่อ IP — โค้ดตั๋วโชว์สาธารณะบนผังที่นั่ง
