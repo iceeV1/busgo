@@ -35,9 +35,9 @@ const LS_MY = "busgo_my_codes";           // รหัสตั๋วที่�
 const LS_SESSION = "busgo_member_token";  // [v1.2.0] member session token
 let bookings = [];
 let serverOnline = false;
-let currentUser = null; // [v1.2.0] { id, name, email, phone } เมื่อล็อกอิน
+let currentUser = null; // [v1.2.0] { id, name, phone } เมื่อล็อกอิน (v1.2.1 ตัด email ออก)
 let state = {
-  date: new Date().toISOString().slice(0, 10),
+  date: localToday(), // [v1.4.1] วันที่แบบ timezone ไทย — เดิมใช้ toISOString (UTC) ทำให้ 00:00-06:59 น. ได้วันเมื่อวาน
   returnDate: "",
   tripType: "oneway",
   pax: 1,
@@ -49,6 +49,12 @@ let state = {
   custName: "", custPhone: "", custNote: "",
   selectedSeats: new Set(),
 };
+
+/* [v1.4.1] วันที่วันนี้ตามเวลาเครื่องผู้ใช้ (ไม่ใช่ UTC) */
+function localToday() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
 
 function myCodes() {
   try { return JSON.parse(localStorage.getItem(LS_MY) || "[]"); } catch { return []; }
@@ -257,7 +263,7 @@ function initFilters() {
     paxSel.insertAdjacentHTML("beforeend", `<option value="${n}">${n} คน</option>`));
 
   $("dateInput").value = state.date;
-  $("dateInput").min = new Date().toISOString().slice(0, 10);
+  $("dateInput").min = localToday(); // [v1.4.1] ใช้เวลาท้องถิ่น ไม่ใช่ UTC
   $("returnDateInput").min = state.date;
 
   // เที่ยวเดียว / ไป-กลับ
@@ -477,12 +483,13 @@ function renderBuses() {
 function renderStats(list) {
   const totalLeft = list.reduce((s, b) => s + Math.max(0, seatsLeftOf(b, state.date)), 0);
   const routes = new Set(BUSES.map((b) => `${b.from}|${b.to}`)).size;
-  const activeTickets = bookings.filter((b) => b.status === "active").length;
+  /* [v1.4.1 FIX] "คิวของคุณ" เดิมนับตั๋ว active ทั้งระบบ (ทุกคน) — ตอนนี้นับเฉพาะตั๋วของเครื่องนี้/บัญชีนี้ */
+  const myActive = bookings.filter((b) => myCodes().includes(b.code) && b.status === "active").length;
   $("statsRow").innerHTML = `
     <span class="stat-chip"><b>${list.length}</b>เที่ยวรถที่พบ</span>
     <span class="stat-chip"><b>${totalLeft}</b>ที่นั่งว่าง</span>
     <span class="stat-chip"><b>${routes}</b>เส้นทางทั่วไทย</span>
-    <span class="stat-chip"><b>${activeTickets}</b>คิวของคุณ</span>`;
+    <span class="stat-chip"><b>${myActive}</b>คิวของคุณ</span>`;
 }
 
 /* ================= BOOKING MODAL ================= */
@@ -1041,7 +1048,10 @@ async function cancelBooking(code) {
   updateBadge();
   renderTickets();
   renderBuses();
-  showToast("ยกเลิกการจองเรียบร้อยแล้ว");
+  /* [v1.4.1 FIX] เดิม offline ก็โชว์ "ยกเลิกเรียบร้อย" ทั้งที่เซิร์ฟเวอร์ยังไม่รู้ —
+     ตอนนี้แยกข้อความตามความจริงเหมือน flow ชำระเงิน (v1.1.3) */
+  if (serverOnline) showToast("ยกเลิกการจองเรียบร้อยแล้ว");
+  else showToast("บันทึกการยกเลิกในเครื่องชั่วคราว — เซิร์ฟเวอร์ยังไม่รับการยกเลิก กรุณาทำซ้ำเมื่อออนไลน์", true);
 }
 
 /* ================= AUTH UI WIRING (v1.2.0) ================= */

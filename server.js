@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.4.0"; // เวอร์ชันระบบ — Minor: Mobile-first UI (แถบเมนูล่าง, bottom-sheet modal, ช่องสัมผัส 16px, admin mobile)
+const APP_SEMVER = "1.4.1"; // เวอร์ชันระบบ — Patch: /api/version ไม่โหลด db, timezone ไทย, CSV injection, Firebase sync guard, รหัสตั๋วกันซ้ำ, offline cancel โปร่งใส
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -195,6 +195,10 @@ function ensureArrays(db) {
   db.users = toArr(db.users);
   db.sessions = toArr(db.sessions);
   db.promos = toArr(db.promos);
+  /* [v1.4.1] purge session หมดอายุบน Firebase path ด้วย — เดิมมีแต่ใน normalize()
+     (Upstash/local) ทำให้ sessions สะสมไม่มีวันลดเมื่อใช้ Firebase */
+  const now = Date.now();
+  db.sessions = db.sessions.filter((s) => new Date(s.expiresAt).getTime() > now);
   if (!db.promos.length) db.promos = JSON.parse(JSON.stringify(DEFAULT_PROMOS));
   db.buses.forEach((b) => { if (!b.mode) b.mode = "bus"; });
 }
@@ -222,6 +226,7 @@ function normalize(db) {
 async function loadDB() {
   /* [v1.2.2] ลำดับการอ่าน: Firebase (ถ้าตั้งค่า) → Upstash → ไฟล์ local
      ครั้งแรกที่ Firebase ว่าง จะดึงข้อมูลเดิมจากแหล่งสำรองแล้ว sync ขึ้น Firebase ให้อัตโนมัติ */
+  let fbEmpty = false; // [v1.4.1] true เมื่อ Firebase ว่างจริง (GET สำเร็จแต่ไม่มีข้อมูล) — ใช้กำกับว่าจะ sync ขึ้นได้เท่านั้น
   if (fbEnabled()) {
     try {
       const raw = await fbGet();
@@ -230,9 +235,12 @@ async function loadDB() {
         ensureArrays(db);
         return db;
       }
+      fbEmpty = true; // Firebase ว่างจริง (ไม่ใช่กรณี GET error)
       console.log("[FIREBASE] ยังไม่มีข้อมูล — ดึงจากแหล่งสำรองแล้วจะ sync ขึ้น Firebase");
     } catch (e) {
       console.error("[FIREBASE GET]", e.message, "→ ใช้แหล่งสำรองชั่วคราว");
+      /* [v1.4.1 FIX] กรณี GET error จะไม่ fbPut ทับข้อมูล Firebase ด้านล่างอย่างเด็ดขาด
+         กันกรณี GET พลาดชั่วคราวแต่ PUT สำเร็จ → ข้อมูลเก่าจากแหล่งสำรองทับข้อมูลใหม่ */
     }
   }
   let db = null;
@@ -267,8 +275,8 @@ async function loadDB() {
       await saveDB(db);
     }
   }
-  // sync ข้อมูลชุดแรกขึ้น Firebase (ครั้งเดียวตอน Firebase ยังว่าง)
-  if (fbEnabled() && db) {
+  // sync ข้อมูลชุดแรกขึ้น Firebase (ครั้งเดียวตอน Firebase ยังว่าง — เช็ค fbEmpty กันทับข้อมูล)
+  if (fbEnabled() && db && fbEmpty) {
     try {
       await fbPut(JSON.stringify(db));
       console.log("[FIREBASE] sync ข้อมูลเริ่มต้นสำเร็จ");
@@ -452,6 +460,19 @@ function validateBus(b) {
 
 /* ================= API ================= */
 async function handleApi(req, res, p) {
+  /* [v1.4.1 PERF FIX] /api/version ไม่ใช้ฐานข้อมูล — เดิม loadDB() รันก่อนดู endpoint
+     ทำให้ทุก poll ของ update notifier (ทุกแท็บทุก 60 วิ) ดึง db ทั้งก้อนจาก Firebase
+     เปลือง quota ฟรี tier มหาศาล ตอนนี้ตอบก่อนโดยไม่แตะ db */
+  if (p === "/api/version" && req.method === "GET") {
+    return send(res, 200, {
+      version: APP_VERSION,
+      semver: APP_SEMVER,
+      short: APP_VERSION_SHORT,
+      started: APP_STARTED_AT,
+      source: process.env.RENDER_GIT_COMMIT ? "render" : "local",
+    });
+  }
+
   const db = await loadDB(); // อ่านใหม่ทุก request → ข้อมูลสดเสมอ
   req._db = db; // [v1.2.0] ให้ isAdmin/getSessionUser เข้าถึง sessions ของ request นี้
   const m = req.method;
@@ -612,8 +633,16 @@ async function handleApi(req, res, p) {
     const gross = seats.length * bus.price;
     const discount = promo ? Math.round((gross * promo.percent) / 100) : 0;
 
+    /* [v1.4.1 FIX] รหัสตั๋วสุ่ม 6 hex — เดิมไม่เช็คซ้ำกับ db เลย (โอกาสชน ~1/16.7M ต่อการจอง
+       แต่ถ้าชน = ตั๋วสองใบใช้รหัสเดียวกัน ค้น/ยกเลิกผิดฝั่ง) — ตอนนี้สุ่มซ้ำจะสุ่มใหม่สูงสุด 5 ครั้ง */
+    let code = "";
+    for (let tries = 0; tries < 5; tries++) {
+      code = "BG-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+      if (!db.bookings.some((x) => x.code === code)) break;
+    }
+
     const booking = {
-      code: "BG-" + crypto.randomBytes(3).toString("hex").toUpperCase(), // สุ่มแบบ unguessable กันเดารหัสตั๋ว
+      code,
       busId: bus.id,
       date: dateStr,
       seats,
@@ -803,16 +832,7 @@ async function handleApi(req, res, p) {
     }
   }
 
-  /* ---------- VERSION (update notifier) ---------- */
-  if (p === "/api/version" && m === "GET") {
-    return send(res, 200, {
-      version: APP_VERSION,
-      semver: APP_SEMVER,
-      short: APP_VERSION_SHORT,
-      started: APP_STARTED_AT,
-      source: process.env.RENDER_GIT_COMMIT ? "render" : "local",
-    });
-  }
+  /* ---------- VERSION (update notifier) — ย้ายไปตอนต้น handleApi ก่อน loadDB (v1.4.1) ---------- */
 
   /* ---------- ADMIN AUTH CHECK (มี lockout กัน brute force) ---------- */
   if (p === "/api/admin/check" && m === "GET") {
@@ -846,13 +866,17 @@ const server = http.createServer(async (req, res) => {
       if ((p === "/api/auth/register" || p === "/api/auth/login" || p === "/api/admin/login") && m !== "GET"
         && !rateLimit(req, res, "auth:" + ip, 10, 5 * 60 * 1000)) return;
       // ค้นหาตั๋วข้ามเครื่อง: 10 ครั้ง/5 นาที ต่อ IP (กัน brute force เบอร์โทร)
-      if (p === "/api/bookings/search" && !isAdmin(req) && !rateLimit(req, res, "search:" + ip, 10, 5 * 60 * 1000)) return;
+      /* [v1.4.1 FIX] เดิมใช้ isAdmin(req) ซึ่งต้องอ่าน db.sessions (ยังไม่โหลด ณ จุดนี้)
+         → admin ที่ล็อกอินด้วย session ถูกจำกัด rate limit เหมือนคนทั่วไป
+         ตอนนี้เช็คเฉพาะ x-admin-key (timing-safe ไม่ต้องใช้ db) สำหรับ automation เท่านั้น */
+      if (p === "/api/bookings/search" && !isAdminKey(req) && !rateLimit(req, res, "search:" + ip, 10, 5 * 60 * 1000)) return;
       // เช็ครหัส admin: 10 ครั้ง/5 นาที (กัน brute force)
       if (p === "/api/admin/check" && !rateLimit(req, res, "auth:" + ip, 10, 5 * 60 * 1000)) return;
-      /* [v1.0.2] ยกเลิกการจอง: 5 ครั้ง/15 นาที ต่อ IP — โค้ดตั๋วโชว์สาธารณะบนผังที่นั่ง
-         คนร้ายจึงลองเดาเบอร์โทรเพื่อ PATCH /cancel ได้ ต้องมี limit เฉพาะ (admin ยกเว้น) */
-      if (m === "PATCH" && /^\/api\/bookings\/[^/]+\/cancel$/.test(p) && !isAdmin(req)
-        && !rateLimit(req, res, "cancel:" + ip, 5, 15 * 60 * 1000)) return;
+      /* [v1.0.2] ยกเลิกการจอง: 8 ครั้ง/15 นาที ต่อ IP — โค้ดตั๋วโชว์สาธารณะบนผังที่นั่ง
+         คนร้ายจึงลองเดาเบอร์โทรเพื่อ PATCH /cancel ได้ ต้องมี limit เฉพาะ
+         [v1.4.1] ยกเป็น 8 ครั้ง (เดิม 5) เผื่อ admin ใช้ session จัดการหลายรายการติดกัน */
+      if (m === "PATCH" && /^\/api\/bookings\/[^/]+\/cancel$/.test(p) && !isAdminKey(req)
+        && !rateLimit(req, res, "cancel:" + ip, 8, 15 * 60 * 1000)) return;
       // เขียนข้อมูล buses/promos (admin): 30 ครั้ง/นาที
       if ((p.startsWith("/api/buses") || p.startsWith("/api/promos")) && m !== "GET" && !rateLimit(req, res, "awrite:" + ip, 30, 60 * 1000)) return;
     }

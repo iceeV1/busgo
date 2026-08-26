@@ -151,12 +151,19 @@ document.querySelectorAll(".admin-tabs .nav-link").forEach((btn) =>
   })
 );
 
+/* [v1.4.1] วันที่วันนี้ตามเวลาเครื่อง (ไทย) — เดิมใช้ toISOString().slice(0,10) ซึ่งเป็น UTC
+   ทำให้สถิติ "วันนี้" ผิดช่วงเวลาไทย 00:00-06:59 น. (นับเป็นวันเมื่อวาน) */
+function localToday() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
 /* ================= DASHBOARD ================= */
 function renderDash() {
   const activeOrChecked = bookings.filter((b) => b.status === "active" || b.status === "checked_in");
   const checkedIn = bookings.filter((b) => b.status === "checked_in");
   const revenue = activeOrChecked.reduce((s, b) => s + b.total, 0);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const todayBookings = bookings.filter((b) => b.date === today && (b.status === "active" || b.status === "checked_in"));
   const todayChecked = bookings.filter((b) => b.date === today && b.status === "checked_in");
 
@@ -276,7 +283,7 @@ async function handleUndoCheckin(code) {
 }
 
 function renderCheckinLogs() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const checkedInList = bookings
     .filter((b) => b.status === "checked_in")
     .sort((a, b) => (b.checkedInAt || "").localeCompare(a.checkedInAt || ""));
@@ -406,9 +413,13 @@ $("bkRefresh").addEventListener("click", () => { refresh(); toast("รีเฟ�
 $("csvBtn").addEventListener("click", () => {
   const head = ["code", "route_from", "route_to", "date", "depart", "name", "phone", "seats", "total", "status", "checked_in_at"];
   const lines = [head.join(",")];
+  /* [v1.4.1 SEC FIX] กัน CSV/Excel Formula Injection — ชื่อผู้จองเป็นข้อมูลที่คนแปลกหน้ากรอกเองได้
+     ถ้าตั้งชื่อขึ้นต้นด้วย = + - @ แล้ว admin เปิดไฟล์ใน Excel อาจถูกรันสูตร/ลิงก์ประหลาด
+     วิธีมาตรฐาน: เติม ' นำหน้าค่าที่ขึ้นต้นด้วยอักขระกลุ่มนี้ */
+  const safeCell = (v) => /^[=+\-@\t\r]/.test(String(v)) ? "'" + v : v;
   getFilteredBookings().forEach((bk) => {
     const bus = buses.find((x) => x.id === bk.busId) || {};
-    lines.push([bk.code, bus.from || "", bus.to || "", bk.date, bus.depart || "",
+    lines.push([safeCell(bk.code), safeCell(bus.from || ""), safeCell(bus.to || ""), bk.date, bus.depart || "",
       `"${(bk.name || "").replace(/"/g, '""')}"`, bk.phone,
       `"${bk.seats.join(" ")}"`, bk.total, bk.status, bk.checkedInAt || ""].join(","));
   });
