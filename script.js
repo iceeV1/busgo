@@ -830,6 +830,14 @@ $("payNowBtn").addEventListener("click", async () => {
 $("closeModal").addEventListener("click", () => { closeModal(); renderBuses(); });
 $("doneClose").addEventListener("click", () => { closeModal(); renderBuses(); });
 $("viewTicketsBtn").addEventListener("click", () => { closeModal(); switchTab("tickets"); });
+/* [v1.4.0] แถบเมนูล่าง (มือถือ): ปุ่มค้นตั๋ว → เปิดแท็บตั๋ว + เลื่อนไปฟอร์มค้นหาตั๋วข้ามเครื่อง */
+const tabbarLookupBtn = document.getElementById("tabbarLookup");
+if (tabbarLookupBtn) tabbarLookupBtn.addEventListener("click", () => {
+  switchTab("tickets");
+  const card = document.querySelector(".ticket-lookup-card");
+  if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+  setTimeout(() => { const el = $("lookupCode"); if (el) el.focus({ preventScroll: true }); }, 400);
+});
 $("bookingModal").addEventListener("click", (e) => {
   if (e.target === $("bookingModal")) { closeModal(); renderBuses(); }
 });
@@ -845,6 +853,11 @@ function updateBadge() {
   const badge = $("ticketBadge");
   badge.textContent = n;
   badge.classList.toggle("hidden", n === 0);
+  // [v1.4.0] sync badge บนแถบเมนูล่าง (มือถือ) ทุกตำแหน่ง
+  document.querySelectorAll(".js-tab-badge").forEach((el) => {
+    el.textContent = n;
+    el.classList.toggle("hidden", n === 0);
+  });
 }
 
 function renderTickets() {
