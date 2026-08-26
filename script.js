@@ -1050,7 +1050,7 @@ $("authLoginForm").addEventListener("submit", async (e) => {
   btn.textContent = "กำลังเข้าสู่ระบบ...";
   try {
     const d = await apiAuth("POST", "/api/auth/login", {
-      email: $("liEmail").value.trim(),
+      name: $("liName").value.trim(),
       password: $("liPass").value,
     });
     setSessionToken(d.token);
@@ -1078,7 +1078,6 @@ $("authRegisterForm").addEventListener("submit", async (e) => {
   try {
     const d = await apiAuth("POST", "/api/auth/register", {
       name: $("rgName").value.trim(),
-      email: $("rgEmail").value.trim(),
       password: $("rgPass").value,
       phone,
     });

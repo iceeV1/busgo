@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.2.0"; // เวอร์ชันระบบ — Minor: ระบบสมาชิก (register/login/logout) + admin session token
+const APP_SEMVER = "1.2.1"; // เวอร์ชันระบบ — Patch: เปลี่ยน login สมาชิกจากอีเมลเป็นชื่อบัญชี (nameLower)
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -173,6 +173,8 @@ function normalize(db) {
   /* [v1.2.0] users/sessions สำหรับระบบสมาชิก — ตัด session ที่หมดอายุออกกัน DB บวม */
   if (!Array.isArray(db.users)) { db.users = []; changed = true; }
   if (!Array.isArray(db.sessions)) { db.sessions = []; changed = true; }
+  /* [v1.2.1] backfill nameLower ให้ user เก่าที่สมัครก่อนมีระบบชื่อบัญชี */
+  (db.users || []).forEach((u) => { if (u.name && !u.nameLower) { u.nameLower = String(u.name).toLowerCase(); changed = true; } });
   const now = Date.now();
   const alive = db.sessions.filter((s) => new Date(s.expiresAt).getTime() > now);
   if (alive.length !== db.sessions.length) { db.sessions = alive; changed = true; }
@@ -344,7 +346,7 @@ function verifyPassword(password, user) {
   return test.length === stored.length && crypto.timingSafeEqual(test, stored);
 }
 function publicSelf(user) {
-  return { id: user.id, name: user.name, email: user.email, phone: user.phone };
+  return { id: user.id, name: user.name, phone: user.phone };
 }
 function createSession(db, kind, userId, ttlMs) {
   const s = {
@@ -622,18 +624,18 @@ async function handleApi(req, res, p) {
   if (p === "/api/auth/register" && m === "POST") {
     const body = await readBody(req);
     const name = String(body.name || "").trim().slice(0, 80);
-    const email = String(body.email || "").trim().toLowerCase().slice(0, 120);
     const password = String(body.password || "");
     const phone = String(body.phone || "").replace(/[-\s]/g, "");
     if (name.length < 3) return send(res, 400, { error: "กรุณากรอกชื่อ–นามสกุล (3-80 ตัวอักษร)" });
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return send(res, 400, { error: "รูปแบบอีเมลไม่ถูกต้อง" });
     if (password.length < 8 || password.length > 128) return send(res, 400, { error: "รหัสผ่านต้องมีความยาว 8-128 ตัวอักษร" });
     if (!/^0\d{8,9}$/.test(phone)) return send(res, 400, { error: "เบอร์โทรศัพท์ไม่ถูกต้อง" });
-    if (db.users.some((x) => x.email === email)) return send(res, 409, { error: "อีเมลนี้ถูกใช้สมัครแล้ว" });
+    /* [v1.2.1] ใช้ชื่อเป็นตัวระบุบัญชี (ไม่ใช่อีเมล) — เก็บ nameLower กันซ้ำแบบไม่สนตัวพิมพ์ */
+    const nameLower = name.toLowerCase();
+    if (db.users.some((x) => x.nameLower === nameLower)) return send(res, 409, { error: "ชื่อนี้ถูกใช้สมัครแล้ว — ลองเข้าสู่ระบบ หรือใช้ชื่ออื่น" });
     const salt = crypto.randomBytes(16).toString("hex");
     const user = {
       id: "U" + crypto.randomBytes(4).toString("hex").toUpperCase(),
-      name, email, phone,
+      name, nameLower, phone,
       salt,
       passHash: hashPassword(password, salt),
       createdAt: new Date().toISOString(),
@@ -646,11 +648,11 @@ async function handleApi(req, res, p) {
 
   if (p === "/api/auth/login" && m === "POST") {
     const body = await readBody(req).catch(() => ({}));
-    const email = String(body.email || "").trim().toLowerCase();
+    const nameLower = String(body.name || "").trim().toLowerCase();
     const password = String(body.password || "");
-    const u = db.users.find((x) => x.email === email);
-    /* ข้อความเดียวกันทั้งกรณีไม่พบอีเมล/รหัสผ่านผิด — กัน user enumeration */
-    if (!u || !verifyPassword(password, u)) return send(res, 401, { ok: false, error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" });
+    const u = db.users.find((x) => x.nameLower === nameLower);
+    /* ข้อความเดียวกันทั้งกรณีไม่พบชื่อ/รหัสผ่านผิด — กัน enumeration */
+    if (!u || !verifyPassword(password, u)) return send(res, 401, { ok: false, error: "ชื่อบัญชีหรือรหัสผ่านไม่ถูกต้อง" });
     const sess = createSession(db, "member", u.id, MEMBER_SESSION_MS);
     await saveDB(db);
     return send(res, 200, { token: sess.token, expiresAt: sess.expiresAt, user: publicSelf(u) });

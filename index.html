@@ -265,8 +265,8 @@
       </div>
 
       <form id="authLoginForm" class="info-form">
-        <label>อีเมล
-          <input type="email" id="liEmail" required autocomplete="email" placeholder="you@example.com" />
+        <label>ชื่อบัญชี
+          <input type="text" id="liName" required minlength="3" maxlength="80" autocomplete="username" placeholder="ชื่อ–นามสกุลที่ใช้สมัคร" />
         </label>
         <label>รหัสผ่าน
           <input type="password" id="liPass" required minlength="8" autocomplete="current-password" placeholder="รหัสผ่าน 8 ตัวขึ้นไป" />
@@ -275,11 +275,8 @@
       </form>
 
       <form id="authRegisterForm" class="info-form hidden">
-        <label>ชื่อ–นามสกุล
-          <input type="text" id="rgName" required minlength="3" maxlength="80" placeholder="เช่น สมชาย ใจดี" />
-        </label>
-        <label>อีเมล
-          <input type="email" id="rgEmail" required autocomplete="email" placeholder="you@example.com" />
+        <label>ชื่อบัญชี (ใช้เข้าสู่ระบบ ต้องไม่ซ้ำกับผู้อื่น)
+          <input type="text" id="rgName" required minlength="3" maxlength="80" autocomplete="username" placeholder="เช่น สมชาย ใจดี" />
         </label>
         <label>เบอร์โทรศัพท์
           <input type="tel" id="rgPhone" required inputmode="numeric" maxlength="10" autocomplete="tel" placeholder="08xxxxxxxx" />
@@ -290,7 +287,7 @@
         <button type="submit" class="btn btn-primary auth-submit" id="registerSubmitBtn">สมัครสมาชิก</button>
       </form>
 
-      <p class="muted small" style="margin-bottom:0">เป็นสมาชิกแล้วจองได้โดยไม่ต้องกรอกชื่อ–เบอร์ซ้ำ และเปิดดูตั๋วทุกใบได้จากอุปกรณ์ใดก็ได้</p>
+      <p class="muted small" style="margin-bottom:0">จำชื่อบัญชีกับรหัสผ่านให้ดี — เป็นสมาชิกแล้วจองได้โดยไม่ต้องกรอกชื่อ–เบอร์ซ้ำ และเปิดดูตั๋วทุกใบได้จากอุปกรณ์ใดก็ได้</p>
     </div>
   </div>
 
