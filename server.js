@@ -24,6 +24,66 @@ const TYPE_INFO = {
 };
 const PAY_METHODS = ["promptpay", "card", "wallet"];
 
+/* ================= SECURITY =================
+   - Rate limiting ต่อ IP (กัน DoS/สแปมจาก client เดียว)
+   - Admin lockout (กัน brute force รหัสผ่าน)
+   - Security headers (กัน clickjacking / MIME sniffing) */
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+};
+
+function clientIp(req) {
+  const xf = req.headers["x-forwarded-for"]; // Render/Cloudflare ใส่มาให้
+  if (xf) return String(xf).split(",")[0].trim();
+  return req.socket.remoteAddress || "unknown";
+}
+
+const rateBuckets = new Map(); // key -> { count, resetAt }
+function rateLimit(req, res, key, max, windowMs) {
+  const now = Date.now();
+  let b = rateBuckets.get(key);
+  if (!b || now > b.resetAt) { b = { count: 0, resetAt: now + windowMs }; rateBuckets.set(key, b); }
+  b.count++;
+  if (b.count > max) {
+    const retry = Math.ceil((b.resetAt - now) / 1000);
+    res.writeHead(429, { ...SECURITY_HEADERS, "Content-Type": "application/json; charset=utf-8", "Retry-After": String(retry), "Cache-Control": "no-store" });
+    res.end(JSON.stringify({ error: `คำขอมากเกินไป กรุณารอ ${retry} วินาทีแล้วลองใหม่` }));
+    return false;
+  }
+  return true;
+}
+
+const adminFails = new Map(); // ip -> { count, firstAt, lockedUntil }
+const ADMIN_MAX_FAILS = 5;    // ผิดได้ 5 ครั้ง
+const ADMIN_FAIL_WINDOW = 5 * 60 * 1000;
+const ADMIN_LOCK_MS = 15 * 60 * 1000; // แล้วล็อก 15 นาที
+function adminLockInfo(ip) {
+  const now = Date.now();
+  const st = adminFails.get(ip);
+  if (st && st.lockedUntil && now < st.lockedUntil) {
+    return { locked: true, minsLeft: Math.ceil((st.lockedUntil - now) / 60000) };
+  }
+  return { locked: false };
+}
+function adminRecordFail(ip) {
+  const now = Date.now();
+  let st = adminFails.get(ip);
+  if (!st || now - st.firstAt > ADMIN_FAIL_WINDOW) st = { count: 0, firstAt: now, lockedUntil: 0 };
+  st.count++;
+  if (st.count >= ADMIN_MAX_FAILS) { st.lockedUntil = now + ADMIN_LOCK_MS; st.count = 0; }
+  adminFails.set(ip, st);
+}
+// เก็บกวาด bucket/สถานะหมดอายุ กัน RAM โต (ใช้กับการโจมตียาวๆ)
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, b] of rateBuckets) if (now > b.resetAt) rateBuckets.delete(k);
+  for (const [k, s] of adminFails) if (s.lockedUntil && now > s.lockedUntil) adminFails.delete(k);
+}, 60 * 1000).unref();
+
 const DEFAULT_BUSES = [
   { id: "B01", from: "กรุงเทพฯ", to: "เชียงใหม่", depart: "08:00", arrive: "17:30", duration: "9 ชม. 30 นาที", type: "vip", price: 850 },
   { id: "B02", from: "กรุงเทพฯ", to: "เชียงใหม่", depart: "21:00", arrive: "06:30", duration: "9 ชม. 30 นาที", type: "air", price: 620 },
@@ -135,7 +195,11 @@ const MIME = {
 };
 
 function send(res, status, obj) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+  res.writeHead(status, {
+    ...SECURITY_HEADERS,
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
   res.end(JSON.stringify(obj));
 }
 function sendFile(res, filePath) {
@@ -143,6 +207,7 @@ function sendFile(res, filePath) {
   if (!full.startsWith(ROOT)) return send(res, 403, { error: "Forbidden" });
   if (!fs.existsSync(full) || !fs.statSync(full).isFile()) return send(res, 404, { error: "Not Found" });
   res.writeHead(200, {
+    ...SECURITY_HEADERS,
     "Content-Type": MIME[path.extname(full).toLowerCase()] || "application/octet-stream",
     "Cache-Control": "no-cache",
   });
@@ -156,7 +221,7 @@ function sendFile(res, filePath) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let raw = "";
-    req.on("data", (c) => { raw += c; if (raw.length > 1e6) req.destroy(); });
+    req.on("data", (c) => { raw += c; if (raw.length > 1e5) req.destroy(); }); // จำกัด body 100KB กันถล่ม RAM
     req.on("end", () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch (e) { reject(new Error("JSON ไม่ถูกต้อง")); } });
     req.on("error", reject);
   });
@@ -371,9 +436,16 @@ async function handleApi(req, res, p) {
     });
   }
 
-  /* ---------- ADMIN AUTH CHECK ---------- */
+  /* ---------- ADMIN AUTH CHECK (มี lockout กัน brute force) ---------- */
   if (p === "/api/admin/check" && m === "GET") {
-    return send(res, isAdmin(req) ? 200 : 401, { ok: isAdmin(req) });
+    const ip = clientIp(req);
+    const lock = adminLockInfo(ip);
+    if (lock.locked) return send(res, 429, { error: `ล็อกอินผิดพลาดหลายครั้ง — ลองใหม่ในอีก ${lock.minsLeft} นาที` });
+    const ok = isAdmin(req);
+    if (ok) { adminFails.delete(ip); return send(res, 200, { ok: true }); }
+    adminRecordFail(ip);
+    const left = ADMIN_MAX_FAILS - (adminFails.get(ip)?.count || 0);
+    return send(res, 401, { ok: false, error: "รหัสผ่านไม่ถูกต้อง", remaining: Math.max(left, 0) });
   }
 
   return send(res, 404, { error: "API ไม่พบ: " + p });
@@ -383,6 +455,20 @@ async function handleApi(req, res, p) {
 const server = http.createServer(async (req, res) => {
   let p = new URL(req.url, "http://x").pathname;
   try {
+    /* ---- ป้องกันขั้นพื้นฐาน: URL ยาวผิดปกติ + Rate limit ต่อ IP ---- */
+    if (req.url.length > 2048) return send(res, 414, { error: "URI Too Long" });
+    const ip = clientIp(req);
+    const m = req.method;
+    if (p.startsWith("/api/")) {
+      // API ทั่วไป: 120 ครั้ง/นาที (หน้าเว็บ poll version ทุก 60 วิ ใช้สบาย)
+      if (!rateLimit(req, res, "api:" + ip, 120, 60 * 1000)) return;
+      // สร้างการจอง: 5 ครั้ง/10 นาที ต่อ IP (กันสแปมจองเป็นจำนวนมาก)
+      if (p === "/api/bookings" && m === "POST" && !rateLimit(req, res, "book:" + ip, 5, 10 * 60 * 1000)) return;
+      // เช็ครหัส admin: 10 ครั้ง/5 นาที (กัน brute force)
+      if (p === "/api/admin/check" && !rateLimit(req, res, "auth:" + ip, 10, 5 * 60 * 1000)) return;
+      // เขียนข้อมูล buses/promos (admin): 30 ครั้ง/นาที
+      if ((p.startsWith("/api/buses") || p.startsWith("/api/promos")) && m !== "GET" && !rateLimit(req, res, "awrite:" + ip, 30, 60 * 1000)) return;
+    }
     if (p.startsWith("/api/")) return await handleApi(req, res, p);
     if (p.length > 1 && p.endsWith("/")) p = p.replace(/\/+$/, "") || "/"; // รองรับ /admin/
     let file = p === "/" ? "/index.html" : p === "/admin" ? "/admin.html" : p;
@@ -392,6 +478,10 @@ const server = http.createServer(async (req, res) => {
     try { send(res, 500, { error: "Internal Server Error" }); } catch {}
   }
 });
+
+// ตัดการเชื่อมต่อค้างเปิดช้าๆ (กัน Slowloris)
+server.headersTimeout = 15000;
+server.requestTimeout = 60000;
 
 // กัน process ล่มบน cloud (สำคัญมากสำหรับ free tier)
 process.on("uncaughtException", (e) => console.error("[UNCAUGHT]", e.message));
