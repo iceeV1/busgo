@@ -16,7 +16,7 @@
 
 ## สถานะปัจจุบัน (อัปเดต: 2026-08-26)
 
-- เวอร์ชัน **1.0.1**, commit ล่าสุด `a22a4b4` — security hardening
+- เวอร์ชัน **1.0.2**, commit ล่าสุด `ab79e84` — security hardening
 - Cloudflare: SSL Full (strict), Always Use HTTPS, Bot Fight Mode, Rate Limit 100 req/min/IP (Block 10 นาที), WAF block `/admin` จากต่างประเทศ (TH only)
 - Phase 0 (โดเมน+โครงสร้าง) ปิดแล้ว / **Phase 1 รอเริ่ม**: ระบบสแกนตั๋วเข้า-ออก (check-in)
 
@@ -29,6 +29,13 @@
 5. isAdmin ใช้ timingSafeEqual / มี CSP header / path.relative กัน traversal
 6. script.js: `withPii()` เติมข้อมูลส่วนตัวตั๋วตัวเองจาก localStorage mirror, saveMirror merge PII ไม่ทำลาย
 7. (`d6944f6`) บล็อก serve static ของ server.js, render.yaml, *.md, pss.txt, .env, db.json — โค้ด backend/config ไม่หลุดทางหน้าเว็บ
+
+## งานรัดความปลอดภัยที่ทำไปแล้ว (v1.0.2)
+
+8. Write mutex `withDbLock()` (promise queue, zero-dependency): serialize ทุก write API (POST/PUT/DELETE/PATCH) — Node event loop แทรก request อื่นกลาง read-check-write ทำให้เคยจองที่นั่งซ้ำได้; ทดสอบยิง 2 request พร้อมกันที่นั่งเดิมแล้วได้ 201+409 ถูกต้อง
+9. Fail-fast: production (`NODE_ENV=production` / `RENDER=true`) ไม่มี env ADMIN_KEY จะ exit(1) ทันที ปิดช่อง fallback เงียบๆ ไป default key; local dev ยังใช้ default ได้
+10. Rate limit PATCH /api/bookings/:code/cancel = 5 ครั้ง/15 นาที/IP กัน brute force เบอร์โทรยกเลิกตั๋วผู้อื่น (โค้ดตั๋วโชว์ public); admin ยกเว้น; ทดสอบได้ 403 x5 + 429 ตามคาด
+11. ที่เหลือระยะยาว: ย้าย rate-limit/lockout state ลง Upstash (อยู่รอด redeploy), เพิ่ม ticket code entropy, atomic Lua script บน Upstash REST (รองรับ MULTI/EXEC + EVAL) — ผูกกับ Phase 1.5
 
 ## กติกาโปรเจกต์ (ห้ามลืม)
 

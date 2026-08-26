@@ -12,8 +12,16 @@ const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
-const ADMIN_KEY = process.env.ADMIN_KEY || "admin1234";
-const APP_SEMVER = "1.0.1"; // เวอร์ชันระบบ — security patch (PII leak, cancel auth, IP spoofing)
+const IS_PROD = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+const ADMIN_KEY = process.env.ADMIN_KEY || "admin1234"; // local dev เท่านั้น
+/* [v1.0.2] Fail-fast: production ห้ามใช้ default key เด็ดขาด — Render ตั้ง
+   NODE_ENV=production ให้อัตโนมัติ ถ้าลืมตั้ง ADMIN_KEY จะ exit(1) ให้ deploy fail
+   เห็นตั้งแต่หน้า log แทนที่จะเงียบๆ เปิดหลังบ้านด้วยรหัส admin1234 ที่ติด public */
+if (IS_PROD && !process.env.ADMIN_KEY) {
+  console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
+  process.exit(1);
+}
+const APP_SEMVER = "1.0.2"; // เวอร์ชันระบบ — security patch (write mutex, fail-fast key, cancel brute-force guard)
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -194,6 +202,19 @@ async function loadDB() {
     await saveDB(db);
     return db;
   }
+}
+
+/* ================= WRITE MUTEX (v1.0.2) =================
+   Node เป็น single-threaded แต่ await เปิดช่องให้ request อื่นแทรกทำงานกลางคัน
+   (event loop interleave) → read-check-write ของ 2 request ซ้อนกันได้ = double booking
+   แก้ด้วย promise queue แบบ concurrency=1 (หลักการเดียวกับ p-queue)
+   - release ทุกกรณี (.then(()=>{},()=>{})) ไม่ให้ task ที่ error บล็อก queue
+   - error ของ task ยังส่งต่อถึงผู้เรียกปกติ */
+let _dbLock = Promise.resolve();
+function withDbLock(fn) {
+  const run = _dbLock.then(fn, fn);
+  _dbLock = run.then(() => {}, () => {});
+  return run;
 }
 
 /* ================= HELPERS ================= */
@@ -512,8 +533,17 @@ const server = http.createServer(async (req, res) => {
       if (p === "/api/bookings" && m === "POST" && !rateLimit(req, res, "book:" + ip, 5, 10 * 60 * 1000)) return;
       // เช็ครหัส admin: 10 ครั้ง/5 นาที (กัน brute force)
       if (p === "/api/admin/check" && !rateLimit(req, res, "auth:" + ip, 10, 5 * 60 * 1000)) return;
+      /* [v1.0.2] ยกเลิกการจอง: 5 ครั้ง/15 นาที ต่อ IP — โค้ดตั๋วโชว์สาธารณะบนผังที่นั่ง
+         คนร้ายจึงลองเดาเบอร์โทรเพื่อ PATCH /cancel ได้ ต้องมี limit เฉพาะ (admin ยกเว้น) */
+      if (m === "PATCH" && /^\/api\/bookings\/[^/]+\/cancel$/.test(p) && !isAdmin(req)
+        && !rateLimit(req, res, "cancel:" + ip, 5, 15 * 60 * 1000)) return;
       // เขียนข้อมูล buses/promos (admin): 30 ครั้ง/นาที
       if ((p.startsWith("/api/buses") || p.startsWith("/api/promos")) && m !== "GET" && !rateLimit(req, res, "awrite:" + ip, 30, 60 * 1000)) return;
+    }
+    if (p.startsWith("/api/") && m !== "GET") {
+      /* [v1.0.2] การเขียนข้อมูลทุกชนิด serialize ผ่าน mutex กัน race condition
+         (loadDB → check → saveDB ของ 2 request ซ้อน timeline กันได้) */
+      return await withDbLock(() => handleApi(req, res, p));
     }
     if (p.startsWith("/api/")) return await handleApi(req, res, p);
     if (p.length > 1 && p.endsWith("/")) p = p.replace(/\/+$/, "") || "/"; // รองรับ /admin/
