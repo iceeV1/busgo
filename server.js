@@ -42,12 +42,43 @@ const DEFAULT_BUSES = [
   { id: "B14", from: "ภูเก็ต", to: "กรุงเทพฯ", depart: "16:00", arrive: "02:30", duration: "10 ชม. 30 นาที", type: "air", price: 700 },
 ];
 
-/* ================= DB ================= */
+/* ================= DB STORAGE =================
+   โหมด 1: มี env UPSTASH_REDIS_REST_URL + TOKEN → เก็บถาวรบนคลาวด์ (ฟรี)
+   โหมด 2: ไม่มี → เก็บไฟล์ data/db.json แบบเดิม (local)            */
+const UP_URL = process.env.UPSTASH_REDIS_REST_URL;
+const UP_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const UP_KEY = "busgo:db";
+const upEnabled = () => Boolean(UP_URL && UP_TOKEN);
+
+async function upGet(key) {
+  const r = await fetch(`${UP_URL}/get/${key}`, {
+    headers: { Authorization: `Bearer ${UP_TOKEN}` },
+  });
+  const d = await r.json();
+  return d.result; // string | null
+}
+async function upSet(key, value) {
+  await fetch(`${UP_URL}/set/${key}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${UP_TOKEN}`, "Content-Type": "text/plain" },
+    body: value,
+  });
+}
+
 function saveDB(db) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = DB_PATH + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
-  fs.renameSync(tmp, DB_PATH); // atomic write ป้องกันไฟล์เสีย
+  const json = JSON.stringify(db, null, 2);
+  // เขียนไฟล์เสมอ (local ใช้เป็นหลัก / บน cloud ใช้เป็น backup)
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    const tmp = DB_PATH + ".tmp";
+    fs.writeFileSync(tmp, json);
+    fs.renameSync(tmp, DB_PATH);
+  } catch (e) {
+    console.error("[FILE]", e.message);
+  }
+  if (upEnabled()) {
+    upSet(UP_KEY, json).catch((e) => console.error("[UPSTASH SET]", e.message));
+  }
 }
 const SAMPLE_EXTRA = [
   { id: "TR01", from: "กรุงเทพฯ", to: "เชียงใหม่", depart: "18:10", arrive: "07:15", duration: "13 ชม. 05 นาที", type: "air", mode: "train", price: 881, seats: 40 },
@@ -71,7 +102,21 @@ function normalize(db) {
   return changed;
 }
 
-function loadDB() {
+async function loadDB() {
+  // โหมดคลาวด์: ดึงจาก Upstash ก่อนเสมอ
+  if (upEnabled()) {
+    try {
+      const raw = await upGet(UP_KEY);
+      if (raw) {
+        const db = JSON.parse(raw);
+        if (normalize(db)) saveDB(db);
+        return db;
+      }
+      console.log("[UPSTASH] ยังไม่มีข้อมูล — สร้างฐานข้อมูลใหม่");
+    } catch (e) {
+      console.error("[UPSTASH GET]", e.message, "→ ใช้ไฟล์ local ชั่วคราว");
+    }
+  }
   try {
     const db = JSON.parse(fs.readFileSync(DB_PATH, "utf8"));
     if (normalize(db)) saveDB(db);
@@ -145,7 +190,7 @@ function validateBus(b) {
 
 /* ================= API ================= */
 async function handleApi(req, res, p) {
-  const db = loadDB(); // อ่านใหม่ทุก request → ข้อมูลสดเสมอ
+  const db = await loadDB(); // อ่านใหม่ทุก request → ข้อมูลสดเสมอ
   const m = req.method;
 
   /* ---------- BUSES ---------- */
