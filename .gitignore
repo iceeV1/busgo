@@ -12,6 +12,7 @@ desktop.ini
 *.log
 .vscode/
 .idea/
+*.code-workspace
 
 # ไฟล์ภาพ/เอกสารส่วนตัวที่โยนลงโฟลเดอร์ (ไม่ใช่โค้ด)
 test.jpeg
