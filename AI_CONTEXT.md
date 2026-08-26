@@ -107,6 +107,28 @@
 
 
 
+## งานที่ทำแล้ว (v1.4.1 — code review fixes)
+
+41. **Code review แบบละเอียดทั้งโปรเจกต์** พบและแก้ 9 จุด (commit `285a553`):
+    - อย่างร้ายแรง `/api/version` ตอบก่อน `loadDB()` — เดิมทุก update-poll (60 วิ/แท็บ) ดึง db ทั้งก้อนจาก Firebase เปลือง quota ฟรี tier
+    - อย่างร้ายแรง **Timezone ไทย**: เพิ่ม `localToday()` ใน script.js + admin.js แทน `toISOString().slice(0,10)` (UTC) — เดิมเที่ยงคืน–06:59 น. default วันที่/สถิติ "วันนี้" เป็นวันเมื่อวาน
+    - อย่างร้ายแรง **CSV Formula Injection**: `safeCell()` เติม apostrophe หน้าค่าขึ้นต้น `= + - @` ใน Export CSV (ชื่อผู้จองกรอกเองได้)
+    - กลาง Firebase sync guard: flag `fbEmpty` — GET error ห้าม fbPut ทับข้อมูล (จับ scope bug ตอนแก้: `let` ใน if-block ไม่เห็นนอกบล็อก ต้องย้ายประกาศขึ้นก่อนบล็อก)
+    - กลาง รหัสตั๋วกันซ้ำ: สุ่มชน db จะสุ่มใหม่ (สูงสุด 5 ครั้ง)
+    - กลาง Offline cancel โปร่งใส: toast แดงบอกว่า server ยังไม่รับ (เดิมบอก "เรียบร้อย" ทั้งที่ปลอม)
+    - กลาง สถิติ "คิวของคุณ" นับเฉพาะตั๋วของเรา (เดิมนับทั้งระบบ)
+    - กลาง Rate-limit pre-check ใช้ `isAdminKey` แทน `isAdmin` (เดิม req._db ยังไม่มี → admin session โดนลิมิต) + cancel limit 5 เป็น 8 ครั้ง/15 นาที
+    - กลาง `ensureArrays` purge session หมดอายุบน Firebase path + แก้ stale comment email
+42. Smoke test v1.4.1 ผ่าน 6/6 (version 123ms / จอง / no-PII / search / cancel ผิดเบอร์ 403 / cancel ถูก) — deploy ยืนยัน build `285a553`
+43. **สิ่งที่ตรวจแล้วปลอดภัย** (ใช้ตอบอาจารย์ได้): XSS ป้องกันครบด้วย esc(), scrypt+salt ต่อ user, timing-safe compare, CSRF-immune (token ผ่าน header ไม่ใช่ cookie), write mutex กัน double-book, path traversal whitelist, brute-force lockout, ราคาคิดฝั่ง server เสมอ
+44. **สิ่งที่ยังไม่แก้ (ยอมรับได้สำหรับงานเรียน)**: เบอร์พร้อมเพย์+ชื่อจริง hardcoded ใน client, checkin ไม่เช็ควันที่รอบรถ, ปลอม XFF ได้ถ้ายิง Render URL ตรง, bk.seats/.total ไม่มี guard ในบาง render, comment ผังที่นั่งเก่า
+
+## การแพ็ก ZIP ส่งงาน
+
+- ไฟล์: `..\busgo_source_code.zip` — **ต้องแพ็กใหม่ทุกครั้งหลังแก้โค้ด** (ตัวล่าสุดแพ็กตอน v1.4.0 ก่อน v1.4.1)
+- สูตร: ใส่ index/admin.html, style/script/admin.js, server.js, theme-boot.js, favicon.svg, busgo_database.sql (gen จาก data/db.json ด้วยสคริปต์ _mksql แบบเดิม), README, start.bat, render.yaml — **ห้าม**ใส่ data/, .git, AI_CONTEXT.md, ไฟล์ขึ้นต้น _ และ pss.txt
+
+
 ## กติกาโปรเจกต์ (ห้ามลืม)
 
 - **ห้ามใช้อีโมจิ (emoji) ทุกกรณี** ในโค้ด/UI/เอกสาร
