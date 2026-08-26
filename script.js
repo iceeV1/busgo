@@ -546,6 +546,11 @@ $("applyPromoBtn").addEventListener("click", async () => {
 
 $("backToSeats").addEventListener("click", () => showStep("stepSeats"));
 
+/* ช่องเบอร์โทร: กรอกได้เฉพาะตัวเลข สูงสุด 10 หลัก */
+$("custPhone").addEventListener("input", (e) => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+});
+
 $("confirmBtn").addEventListener("click", () => {
   const name = $("custName").value.trim();
   const phone = $("custPhone").value.trim();
