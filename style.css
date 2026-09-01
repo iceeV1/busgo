@@ -1014,6 +1014,13 @@ html[data-theme="light"] #lookupPhone::placeholder {
 
 .remember-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
+/* [v1.4.2] ลิงก์เข้าหลังบ้านใน footer — จางๆ กันคนทั่วไปสนใจ แต่ผู้ดูแลเข้าถึงง่าย */
+.footer-admin-link {
+  color: var(--muted); text-decoration: none; border-bottom: 1px dotted var(--card-border);
+  transition: color .2s;
+}
+.footer-admin-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
 /* ================= MOBILE FIRST UI (v1.4.0) =================
    แถบเมนูล่างแบบแอป + bottom-sheet modal + ปุ่ม/ช่องกรอกสำหรับนิ้ว */
 
