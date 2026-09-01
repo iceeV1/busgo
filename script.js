@@ -61,6 +61,7 @@ function myCodes() {
 }
 function addMyCode(code) {
   const s = myCodes();
+  if (s.includes(code)) return; // [v1.4.3 FIX] กันโค้ดซ้ำสะสมใน localStorage
   s.unshift(code);
   localStorage.setItem(LS_MY, JSON.stringify(s.slice(0, 50)));
 }
@@ -530,12 +531,14 @@ function renderSeatMap() {
   getUserTaken(bus.id, state.currentDate).forEach((s) => occ.add(s));
   const map = $("seatMap");
 
-  // layout: rows of [seat, seat, aisle, seat, seat] -> grid 5 cols
+  // layout: แถวละ [ที่นั่ง, ที่นั่ง, ทางเดิน, ที่นั่ง, ที่นั่ง] = grid 5 คอลัมน์ (2 + ทางเดิน + 2)
+  // [v1.4.3 FIX] เดิมใส่ทางเดินหลังที่นั่งที่ 4 ทุกครั้ง → grid กลายเป็น [1][2][3][4][aisle]
+  // ทุกแถว (ทางเดินหลุดไปคอลัมน์ขวาสุด ไม่ใช่กลางแถว) — ตอนนี้ใส่หลังที่นั่งที่ 2 ของแต่ละแถว
   let html = "";
   for (let n = 1; n <= total; n++) {
     html += `<button type="button" class="seat ${occ.has(n) ? "taken" : ""}" data-seat="${n}"
       ${occ.has(n) ? "disabled" : ""} aria-label="ที่นั่ง ${n}">${n}</button>`;
-    if (n % 4 === 0 && n < total) html += `<span class="seat-aisle"></span>`;
+    if (n % 2 === 0 && n % 4 !== 0 && n < total) html += `<span class="seat-aisle"></span>`;
   }
   map.innerHTML = html;
 

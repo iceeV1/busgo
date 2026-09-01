@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.4.2"; // เวอร์ชันระบบ — Patch: ลิงก์เข้าหลังบ้าน /admin ใน footer ของหน้าแรก
+const APP_SEMVER = "1.4.3"; // เวอร์ชันระบบ — Patch: bug hunt (ผังที่นั่งทางเดินกลางแถว, PUT bus กันซ้ำ, adminFails memory leak, addMyCode dedupe)
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -102,7 +102,12 @@ function adminRecordFail(ip) {
 setInterval(() => {
   const now = Date.now();
   for (const [k, b] of rateBuckets) if (now > b.resetAt) rateBuckets.delete(k);
-  for (const [k, s] of adminFails) if (s.lockedUntil && now > s.lockedUntil) adminFails.delete(k);
+  /* [v1.4.3 FIX] เดิมลบเฉพาะรายการที่ถูกล็อก — รายการนับ fail ค้าง (ไม่มี lockedUntil)
+     อยู่ถาวรทำให้ Map โตตามจำนวน IP ตอนนี้ลบทุกที่ที่หมดหน้าต่าง 5 นาทีแล้ว */
+  for (const [k, s] of adminFails) {
+    if ((s.lockedUntil && now > s.lockedUntil) || (!s.lockedUntil && now - s.firstAt > ADMIN_FAIL_WINDOW))
+      adminFails.delete(k);
+  }
 }, 60 * 1000).unref();
 
 const DEFAULT_BUSES = [
@@ -513,6 +518,10 @@ async function handleApi(req, res, p) {
       const b = await readBody(req);
       const err = validateBus(b);
       if (err) return send(res, 400, { error: err });
+      /* [v1.4.3 FIX] เดิม PUT ไม่เช็คซ้ำ (มีแต่ POST) → แก้เที่ยวรถไปชนเส้นทาง+เวลา
+         เดียวกับเที่ยวอื่นได้เงียบๆ — ตอนนี้เช็คโดยไม่นับตัวเอง */
+      if (db.buses.some((x) => x.id !== id && x.from === b.from && x.to === b.to && x.depart === b.depart))
+        return send(res, 409, { error: "มีเที่ยวรถเส้นทางและเวลานี้อยู่แล้ว" });
       Object.assign(db.buses[idx], {
         from: String(b.from).trim(), to: String(b.to).trim(),
         depart: b.depart, arrive: b.arrive,
