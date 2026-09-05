@@ -95,16 +95,61 @@ async function api(path, opts = {}) {
 }
 
 /* ================= LOGIN ================= */
-function showLogin(show) {
-  $("loginOverlay").style.display = show ? "flex" : "none";
+/* ================= LOGIN ================= */
+function setLoginError(msg) {
+  const el = $("loginError");
+  if (!el) return;
+  if (!msg) {
+    el.classList.add("hidden");
+    el.textContent = "";
+  } else {
+    el.classList.remove("hidden");
+    el.textContent = msg;
+  }
 }
+
+function showLogin(show) {
+  const ov = $("loginOverlay");
+  if (ov) ov.style.display = show ? "flex" : "none";
+  if (show) {
+    setLoginError("");
+    setTimeout(() => $("adminPass")?.focus(), 80);
+  }
+}
+
+const passToggle = $("toggleAdminPassBtn");
+const passInput = $("adminPass");
+if (passToggle && passInput) {
+  passToggle.addEventListener("click", () => {
+    const isPass = passInput.type === "password";
+    passInput.type = isPass ? "text" : "password";
+    passToggle.style.color = isPass ? "var(--primary)" : "var(--muted)";
+  });
+}
+if (passInput) {
+  passInput.addEventListener("input", () => setLoginError(""));
+}
+
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const pass = $("adminPass").value.trim();
   const remember = $("rememberMe") && $("rememberMe").checked;
+  const btn = $("adminLoginBtn");
+  const originalBtnHtml = btn ? btn.innerHTML : "";
+
+  if (!pass) {
+    setLoginError("กรุณากรอกรหัสผ่านผู้ดูแลระบบ (สำหรับเครื่อง Local คือ admin1234)");
+    toast("กรุณากรอกรหัสผ่านผู้ดูแลระบบ", true);
+    $("adminPass")?.focus();
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>กำลังเข้าสู่ระบบ...</span>`;
+  }
+
   try {
-    /* [v1.2.0] login ผ่าน session: remember = 30 วัน / ปกติ = 8 ชม.
-       รหัสจริงถูกส่งครั้งเดียวตอน login หลังจากนั้นใช้ token ล้วน */
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -117,11 +162,19 @@ $("loginForm").addEventListener("submit", async (e) => {
     if (remember) localStorage.setItem("bg_admin_session", KEY);
     else localStorage.removeItem("bg_admin_session");
     $("adminPass").value = "";
+    setLoginError("");
     showLogin(false);
     toast("เข้าสู่ระบบสำเร็จ");
-    refresh();
+    await refresh();
   } catch (err) {
+    setLoginError(err.message || "รหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
     toast(err.message || "เข้าสู่ระบบไม่สำเร็จ", true);
+    $("adminPass")?.focus();
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHtml;
+    }
   }
 });
 $("logoutBtn").addEventListener("click", async () => {
@@ -615,5 +668,39 @@ checkForUpdate(true);
 /* กัน form reload หน้า (เดิมใช้ onsubmit inline ซึ่งถูก CSP บล็อก) */
 const _busFormEl = document.getElementById("busForm");
 if (_busFormEl) _busFormEl.addEventListener("submit", (e) => e.preventDefault());
+
+/* UI Helpers (Header scroll, Live Clock, Data-Jump shortcuts) */
+const _topHeader = $("topHeader");
+if (_topHeader) {
+  const onScroll = () => _topHeader.classList.toggle("is-scrolled", window.scrollY > 8);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+}
+
+const _liveClock = $("liveClock");
+if (_liveClock) {
+  const pad = (n) => String(n).padStart(2, "0");
+  function tick() {
+    const d = new Date();
+    _liveClock.textContent = pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+  tick();
+  setInterval(tick, 30000);
+}
+
+document.querySelectorAll("[data-jump]").forEach((b) => b.addEventListener("click", () => {
+  const t = b.getAttribute("data-jump");
+  document.querySelectorAll(".admin-tabs .nav-link").forEach((x) => x.classList.toggle("active", x.dataset.tab === t));
+  ["dash", "checkin", "bookings", "buses", "promos"].forEach((id) => {
+    const el = $("tab-" + id);
+    if (el) el.classList.toggle("hidden", id !== t);
+  });
+  const panel = $("tab-" + t);
+  if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}));
+
+const busCancel = $("busCancel");
+if (busCancel) busCancel.addEventListener("click", () => $("busModal")?.classList.add("hidden"));
+
 
 

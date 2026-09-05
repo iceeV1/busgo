@@ -83,6 +83,7 @@ const ADMIN_MAX_FAILS = 5;    // ผิดได้ 5 ครั้ง
 const ADMIN_FAIL_WINDOW = 5 * 60 * 1000;
 const ADMIN_LOCK_MS = 15 * 60 * 1000; // แล้วล็อก 15 นาที
 function adminLockInfo(ip) {
+  if (!IS_PROD) return { locked: false };
   const now = Date.now();
   const st = adminFails.get(ip);
   if (st && st.lockedUntil && now < st.lockedUntil) {

@@ -45,6 +45,9 @@
 
     <p class="login-intro-text">เข้าสู่ระบบเพื่อจัดการเที่ยวรถ ตรวจสอบสถิติการจอง และสแกนตั๋วเช็คอินขึ้นรถ</p>
 
+    <!-- Inline error alert banner -->
+    <div id="loginError" class="login-error-banner hidden" role="alert"></div>
+
     <!-- Password input group -->
     <div class="login-input-group">
       <label for="adminPass">รหัสผ่านผู้ดูแลระบบ</label>
@@ -398,46 +401,6 @@
   </div>
 </div>
 
-<script>
-/* เครื่องประดับเล็กน้อยที่ไม่ง้อ admin.js: เงาหัวเว็บเมื่อเลื่อน, นาฬิกา, ปุ่มทางลัด data-jump */
-(function () {
-  const header = document.getElementById('topHeader');
-  const onScroll = () => header.classList.toggle('is-scrolled', window.scrollY > 8);
-  window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
-
-  const clock = document.getElementById('liveClock');
-  function tick() {
-    if (!clock) return;
-    const d = new Date(); const pad = (n) => String(n).padStart(2, '0');
-    clock.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
-  }
-  tick(); setInterval(tick, 30000);
-
-  document.querySelectorAll('[data-jump]').forEach((b) => b.addEventListener('click', () => {
-    const t = b.getAttribute('data-jump');
-    document.querySelectorAll('.admin-tabs .nav-link').forEach((x) => x.classList.toggle('active', x.dataset.tab === t));
-    ['dash', 'checkin', 'bookings', 'buses', 'promos'].forEach((id) => {
-      const el = document.getElementById('tab-' + id);
-      if (el) el.classList.toggle('hidden', id !== t);
-    });
-    const panel = document.getElementById('tab-' + t);
-    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }));
-
-  const busCancel = document.getElementById('busCancel');
-  if (busCancel) busCancel.addEventListener('click', () => document.getElementById('busModal')?.classList.add('hidden'));
-
-  const passToggle = document.getElementById('toggleAdminPassBtn');
-  const passInput = document.getElementById('adminPass');
-  if (passToggle && passInput) {
-    passToggle.addEventListener('click', () => {
-      const isPass = passInput.type === 'password';
-      passInput.type = isPass ? 'text' : 'password';
-      passToggle.style.color = isPass ? 'var(--primary)' : 'var(--muted)';
-    });
-  }
-})();
-</script>
 <script src="/admin.js?v=2.0.1"></script>
 </body>
 </html>
