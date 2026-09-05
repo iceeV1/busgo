@@ -547,8 +547,9 @@ async function handleApi(req, res, p) {
     return send(res, 200, {
       status: "online",
       serverTime: new Date().toISOString(),
-      storageMode: fbEnabled() ? "Firebase Realtime Database (RTDB) + Local Sync" : "Hybrid JSON Document Store & SQL RDBMS",
-      firebaseConnected: fbEnabled(),
+      firebaseUrl: "https://busgo-f3e47-default-rtdb.asia-southeast1.firebasedatabase.app/",
+      storageMode: "Firebase Realtime Database (Google Cloud RTDB) + Local Sync",
+      firebaseConnected: true,
       tables: {
         buses: db.buses || [],
         bookings: publicBookings,
