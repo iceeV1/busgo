@@ -10,7 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=2.0.1" />
+  <link rel="stylesheet" href="/leaflet.css" />
+  <link rel="stylesheet" href="/style.css?v=2.0.4" />
 </head>
 <body>
 
@@ -219,6 +220,82 @@
       <button type="button" class="link-btn-alt" id="viewAllRoutesBtn">ดูทุกเส้นทาง</button>
     </div>
     <div id="popularRoutes" class="route-chips"></div>
+  </section>
+
+  <!-- 24/7 LIVE GPS RADAR MAP SHOWCASE (MAIN PAGE) -->
+  <section class="container live-gps-section" id="liveGpsSection">
+    <div class="gps-panel-card">
+      <div class="gps-panel-head">
+        <div class="gph-left">
+          <div class="gph-kicker">
+            <span class="radar-dot"></span>
+            <span>24/7 SATELLITE TELEMETRY</span>
+            <span class="gph-live-pill"><span class="pulse-ring"></span> LIVE REAL-TIME</span>
+          </div>
+          <h2 class="gph-title">แผนที่เรดาร์พิกัด GPS สด 24 ชั่วโมง</h2>
+          <p class="gph-sub">ติดตามตำแหน่งเที่ยวรถ ความเร็ว และเส้นทางวิ่งบนทางหลวงทั่วไทยแบบเรียลไทม์ตลอด 24 ชม.</p>
+        </div>
+        <div class="gph-right">
+          <div class="gps-hud-cluster">
+            <div class="hud-pill">
+              <span class="hud-lbl">กำลังวิ่งบนถนน</span>
+              <span class="hud-val highlight-cyan" id="hudActiveBuses">0 คัน</span>
+            </div>
+            <div class="hud-pill">
+              <span class="hud-lbl">ความเร็วเฉลี่ย</span>
+              <span class="hud-val highlight-gold" id="hudAvgSpeed">82 กม./ชม.</span>
+            </div>
+            <div class="hud-pill">
+              <span class="hud-lbl">ดาวเทียม GPS</span>
+              <span class="hud-val" id="hudSatCount">14 ดวง · ล็อก</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GPS MAP CONTROLS & FILTER BAR -->
+      <div class="gps-toolbar">
+        <div class="gps-filter-group" id="gpsFilterGroup">
+          <button type="button" class="gps-filter-btn active" data-gps-filter="all">ทั้งหมด (<span id="gpsCountAll">0</span>)</button>
+          <button type="button" class="gps-filter-btn" data-gps-filter="enroute"><span class="dot-running"></span> กำลังวิ่งสด (<span id="gpsCountEnroute">0</span>)</button>
+          <button type="button" class="gps-filter-btn" data-gps-filter="scheduled">รอออกเดินทาง (<span id="gpsCountScheduled">0</span>)</button>
+        </div>
+        <div class="gps-quick-tools">
+          <span class="gps-coords-display" id="gpsLiveCoords">พิกัด: 13.7563° N, 100.5018° E</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="gpsFitBoundsBtn" title="ซูมให้เห็นรถทุกคัน">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 9v12h-6M3 15V3h6"/></svg>
+            <span>มุมมองทั่วไทย</span>
+          </button>
+          <button type="button" class="btn btn-ghost btn-sm" id="gpsToggleDrawerBtn" title="แสดง/ซ่อน รายการรถ">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            <span id="gpsDrawerBtnText">รายชื่อเที่ยวรถ</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MAP + LIVE FLEET DRAWER -->
+      <div class="gps-map-layout" id="gpsMapLayout">
+        <div class="gps-map-container" id="liveGpsMap">
+          <!-- Leaflet renders here -->
+        </div>
+
+        <!-- FLEET QUICK SELECT DRAWER -->
+        <aside class="gps-fleet-drawer" id="gpsFleetDrawer">
+          <div class="gfd-header">
+            <span class="gfd-title">รายการรถในระบบ</span>
+            <span class="gfd-count" id="gfdCountText">0 คัน</span>
+          </div>
+          <div class="gfd-list" id="gpsFleetList">
+            <!-- Dynamically populated via script.js -->
+          </div>
+        </aside>
+      </div>
+
+      <div class="gps-panel-footer">
+        <span class="gpf-hint">💡 <b>คำแนะนำ:</b> คลิกที่รูปรถบนแผนที่เพื่อดูความเร็วสด เวลานับถอยหลังถึงปลายทาง หรือกดปุ่ม "เรดาร์สด" ที่รอบรถด้านล่างเพื่อโฟกัสพิกัดทันที</span>
+        <span class="gpf-telemetry">อัตราการส่งข้อมูล: 2.0 วินาที · GPS ความแม่นยำสูง (WGS84)</span>
+      </div>
+    </div>
   </section>
 
   <!-- TAB 1: SCHEDULES & BOOKING -->
@@ -844,6 +921,7 @@
   </nav>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="/script.js?v=2.0.1"></script>
+  <script src="/leaflet.js"></script>
+  <script src="/script.js?v=2.0.4"></script>
 </body>
 </html>

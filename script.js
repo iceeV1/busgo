@@ -218,6 +218,411 @@ function updateSystemClock() {
 setInterval(updateSystemClock, 1000);
 updateSystemClock();
 
+/* ================= 24/7 LIVE GPS & SATELLITE RADAR MAP ================= */
+const GPS_STATIONS = {
+  "กรุงเทพฯ": [13.7563, 100.5018],
+  "หมอชิต 2": [13.8131, 100.5487],
+  "หมอชิต 2 กรุงเทพฯ": [13.8131, 100.5487],
+  "สายใต้ใหม่": [13.7806, 100.4227],
+  "สายใต้ใหม่ กรุงเทพฯ": [13.7806, 100.4227],
+  "เอกมัย": [13.7196, 100.5833],
+  "รังสิต": [13.9889, 100.6177],
+  "พระนครศรีอยุธยา": [14.3532, 100.5684],
+  "อยุธยา": [14.3532, 100.5684],
+  "สระบุรี": [14.5289, 100.9108],
+  "ปากช่อง": [14.7077, 101.4087],
+  "นครราชสีมา": [14.9799, 102.0978],
+  "บขส. ใหม่ โคราช": [14.9897, 102.1022],
+  "เมืองพล": [15.8166, 102.5991],
+  "ขอนแก่น": [16.4322, 102.8236],
+  "บขส. 3 ขอนแก่น": [16.3986, 102.8091],
+  "อุดรธานี": [17.4157, 102.7872],
+  "บขส. อุดรธานี 1": [17.4042, 102.7981],
+  "นครสวรรค์": [15.6930, 100.1226],
+  "พิษณุโลก": [16.8211, 100.2659],
+  "ลำปาง": [18.2888, 99.4928],
+  "เชียงใหม่": [18.7883, 98.9853],
+  "อาเขต เชียงใหม่": [18.7997, 99.0178],
+  "แม่ริม": [18.9142, 98.9439],
+  "ปาย": [19.3582, 98.4405],
+  "ปางมะผ้า": [19.5218, 98.2464],
+  "แม่ฮ่องสอน": [19.3020, 97.9654],
+  "บขส. แม่ฮ่องสอน": [19.2985, 97.9682],
+  "ชลบุรี": [13.3611, 100.9847],
+  "บางแสน": [13.2842, 100.9152],
+  "ศรีราชา": [13.1737, 100.9312],
+  "พัทยา": [12.9276, 100.8771],
+  "พัทยากลาง": [12.9348, 100.8924],
+  "สมุทรสาคร": [13.5475, 100.2744],
+  "เพชรบุรี": [13.1114, 99.9398],
+  "ประจวบฯ": [11.8124, 99.7972],
+  "ชุมพร": [10.4930, 99.1800],
+  "สุราษฎร์ธานี": [9.1382, 99.3217],
+  "สุราษฎร์ฯ": [9.1382, 99.3217],
+  "บขส. สุราษฎร์ธานี": [9.1264, 99.3101],
+  "พังงา": [8.4501, 98.5255],
+  "ภูเก็ต": [7.8804, 98.3923],
+  "บขส. ภูเก็ต 2": [7.9174, 98.3965],
+  "พัทลุง": [7.6167, 100.0833],
+  "หาดใหญ่": [7.0084, 100.4767],
+  "บขส. หาดใหญ่": [6.9934, 100.4828],
+};
+
+function getStationCoord(name, fallbackFrom, fallbackTo) {
+  if (GPS_STATIONS[name]) return GPS_STATIONS[name];
+  for (const [k, v] of Object.entries(GPS_STATIONS)) {
+    if (name.includes(k) || k.includes(name)) return v;
+  }
+  const f1 = GPS_STATIONS[fallbackFrom] || [13.7563, 100.5018];
+  const f2 = GPS_STATIONS[fallbackTo] || [18.7883, 98.9853];
+  return [(f1[0] + f2[0]) / 2, (f1[1] + f2[1]) / 2];
+}
+
+function getBusCoordinates(bus, tele) {
+  const waypoints = tele.waypoints && tele.waypoints.length ? tele.waypoints : [bus.from, bus.to];
+  const count = waypoints.length;
+  if (count <= 1) {
+    const pt = getStationCoord(bus.from);
+    return { lat: pt[0], lng: pt[1], bearing: 0 };
+  }
+
+  const p = Math.max(0, Math.min(100, tele.progress)) / 100;
+  const scaled = p * (count - 1);
+  const idx = Math.min(count - 2, Math.floor(scaled));
+  const fract = scaled - idx;
+
+  const p1 = getStationCoord(waypoints[idx], bus.from, bus.to);
+  const p2 = getStationCoord(waypoints[idx + 1], bus.from, bus.to);
+
+  const lat = p1[0] + (p2[0] - p1[0]) * fract;
+  const lng = p1[1] + (p2[1] - p1[1]) * fract;
+
+  const dLat = p2[0] - p1[0];
+  const dLng = p2[1] - p1[1];
+  let bearing = (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360;
+
+  return { lat, lng, bearing: Math.round(bearing) };
+}
+
+let liveMap = null;
+let busMarkers = new Map();
+let activeGpsFilter = "all";
+let focusedBusId = null;
+let darkTileLayer = null;
+let lightTileLayer = null;
+
+function createBusIcon(bus, tele, bearing) {
+  const isEnroute = tele.status === "enroute";
+  const statusCls = isEnroute ? "enroute" : tele.status === "scheduled" ? "scheduled" : "arrived";
+  const pulseHtml = isEnroute ? `<div class="bus-marker-pulse"></div>` : tele.status === "scheduled" ? `<div class="bus-marker-pulse scheduled"></div>` : "";
+  
+  return L.divIcon({
+    className: "bus-div-icon",
+    html: `
+      <div class="bus-marker-wrap" data-bus-marker="${esc(bus.id)}">
+        ${pulseHtml}
+        <div class="bus-marker-pin ${statusCls}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(${bearing}deg)">
+            <path d="M12 2L19 21L12 17L5 21L12 2Z"/>
+          </svg>
+        </div>
+        <div class="bus-marker-label">${esc(bus.id)}</div>
+      </div>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -20],
+  });
+}
+
+function createBusPopupContent(bus, tele) {
+  const info = TYPE_INFO[bus.type] || {};
+  const statusText = tele.status === "enroute" ? "กำลังวิ่งบนถนน" : tele.status === "scheduled" ? "รอออกเดินทาง" : "ถึงปลายทางแล้ว";
+  const statusColor = tele.status === "enroute" ? "#06b6d4" : tele.status === "scheduled" ? "#f59e0b" : "#10b981";
+
+  return `
+    <div class="gps-popup-card">
+      <div class="gpc-head">
+        <span class="gpc-fleet">FLEET #${esc(bus.id)}</span>
+        <span class="gpc-type badge ${info.cls || ""}">${info.label || bus.type}</span>
+      </div>
+      <div class="gpc-route">${esc(bus.from)} → ${esc(bus.to)}</div>
+      <div style="font-size:11px; margin-bottom:10px; color:${statusColor}; font-weight:700">
+        ● ${statusText} ${tele.status === "enroute" ? `· ความเร็ว ${tele.speed} กม./ชม.` : ""}
+      </div>
+      <div class="gpc-grid">
+        <div class="gpc-cell">
+          <small>พิกัดล่าสุด</small>
+          <b>${esc(tele.currentLoc)}</b>
+        </div>
+        <div class="gpc-cell">
+          <small>สถานีถัดไป</small>
+          <b>${esc(tele.nextStop)}</b>
+        </div>
+        <div class="gpc-cell gpc-speed">
+          <small>เวลาออก–ถึง</small>
+          <b>${bus.depart} – ${bus.arrive}</b>
+        </div>
+        <div class="gpc-cell">
+          <small>ความคืบหน้า</small>
+          <b>${tele.progress}% (${tele.etaText ? tele.etaText.replace("ออกเดินทางในอีก", "รอ").replace("คาดว่าจะถึงในอีก", "อีก") : "ปกติ"})</b>
+        </div>
+      </div>
+      <button type="button" class="gpc-btn" data-gps-book="${esc(bus.id)}">
+        <span>จองคิวรถคันนี้ (฿${bus.price.toLocaleString()})</span>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+function initLiveGpsMap() {
+  const mapEl = $("liveGpsMap");
+  if (!mapEl || liveMap) return;
+  if (typeof L === "undefined") {
+    setTimeout(initLiveGpsMap, 300);
+    return;
+  }
+
+  // Center of Thailand
+  liveMap = L.map("liveGpsMap", {
+    center: [14.8, 100.8],
+    zoom: 6,
+    zoomControl: true,
+    scrollWheelZoom: true,
+  });
+
+  darkTileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    maxZoom: 19,
+    subdomains: "abcd",
+    attribution: "&copy; OpenStreetMap &copy; CARTO",
+  });
+  lightTileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+    maxZoom: 19,
+    subdomains: "abcd",
+    attribution: "&copy; OpenStreetMap &copy; CARTO",
+  });
+
+  const isLight = document.documentElement.dataset.theme === "light";
+  (isLight ? lightTileLayer : darkTileLayer).addTo(liveMap);
+
+  // Highway Route Polylines
+  Object.entries(ROUTE_STATIONS).forEach(([key, stList]) => {
+    const latlngs = stList.map((st) => getStationCoord(st));
+    L.polyline(latlngs, {
+      color: "#06b6d4",
+      weight: 2.2,
+      opacity: 0.35,
+      dashArray: "5, 8",
+    }).addTo(liveMap);
+  });
+
+  // Station Terminal Markers
+  const uniqueStations = new Set();
+  Object.values(ROUTE_STATIONS).forEach((stList) => stList.forEach((s) => uniqueStations.add(s)));
+  uniqueStations.forEach((name) => {
+    const coord = getStationCoord(name);
+    L.circleMarker(coord, {
+      radius: 4,
+      color: "#ffd700",
+      fillColor: "#0b0f19",
+      fillOpacity: 0.9,
+      weight: 1.5,
+    }).bindTooltip(name, { permanent: false, direction: "top", className: "station-tooltip" }).addTo(liveMap);
+  });
+
+  // Mouse coords update
+  liveMap.on("mousemove", (e) => {
+    const el = $("gpsLiveCoords");
+    if (el) el.textContent = `พิกัด: ${e.latlng.lat.toFixed(4)}° N, ${e.latlng.lng.toFixed(4)}° E`;
+  });
+
+  updateLiveGpsMap();
+  setupGpsControls();
+}
+
+function updateLiveGpsMap() {
+  if (!liveMap) return;
+
+  let enrouteCount = 0;
+  let scheduledCount = 0;
+  let totalSpeed = 0;
+  let speedCount = 0;
+  const boundsCoords = [];
+
+  BUSES.forEach((bus) => {
+    const tele = getBusLiveTelemetry(bus);
+    if (tele.status === "enroute") {
+      enrouteCount++;
+      totalSpeed += tele.speed;
+      speedCount++;
+    } else if (tele.status === "scheduled") {
+      scheduledCount++;
+    }
+
+    const pos = getBusCoordinates(bus, tele);
+    boundsCoords.push([pos.lat, pos.lng]);
+
+    // Check filter
+    const visible =
+      activeGpsFilter === "all" ||
+      (activeGpsFilter === "enroute" && tele.status === "enroute") ||
+      (activeGpsFilter === "scheduled" && tele.status === "scheduled");
+
+    let marker = busMarkers.get(bus.id);
+    if (!marker) {
+      marker = L.marker([pos.lat, pos.lng], {
+        icon: createBusIcon(bus, tele, pos.bearing),
+        title: `Bus ${bus.id}: ${bus.from} - ${bus.to}`,
+      });
+      marker.bindPopup(createBusPopupContent(bus, tele));
+      marker.on("popupopen", () => {
+        const btn = document.querySelector(`[data-gps-book="${bus.id}"]`);
+        if (btn) btn.addEventListener("click", () => openBooking(bus.id, state.date));
+      });
+      marker.on("click", () => {
+        focusedBusId = bus.id;
+        highlightFleetItem(bus.id);
+      });
+      if (visible) marker.addTo(liveMap);
+      busMarkers.set(bus.id, marker);
+    } else {
+      marker.setLatLng([pos.lat, pos.lng]);
+      marker.setIcon(createBusIcon(bus, tele, pos.bearing));
+      marker.setPopupContent(createBusPopupContent(bus, tele));
+      if (visible && !liveMap.hasLayer(marker)) {
+        marker.addTo(liveMap);
+      } else if (!visible && liveMap.hasLayer(marker)) {
+        liveMap.removeLayer(marker);
+      }
+    }
+  });
+
+  // Update HUD
+  if ($("hudActiveBuses")) $("hudActiveBuses").textContent = `${enrouteCount} คัน`;
+  if ($("hudAvgSpeed")) $("hudAvgSpeed").textContent = `${speedCount ? Math.round(totalSpeed / speedCount) : 80} กม./ชม.`;
+  if ($("gpsCountAll")) $("gpsCountAll").textContent = BUSES.length;
+  if ($("gpsCountEnroute")) $("gpsCountEnroute").textContent = enrouteCount;
+  if ($("gpsCountScheduled")) $("gpsCountScheduled").textContent = scheduledCount;
+
+  renderFleetDrawer();
+}
+
+function renderFleetDrawer() {
+  const listEl = $("gpsFleetList");
+  if (!listEl) return;
+
+  const filtered = BUSES.filter((b) => {
+    const tele = getBusLiveTelemetry(b);
+    if (activeGpsFilter === "all") return true;
+    return tele.status === activeGpsFilter;
+  });
+
+  if ($("gfdCountText")) $("gfdCountText").textContent = `${filtered.length} คัน`;
+
+  listEl.innerHTML = filtered.map((b) => {
+    const tele = getBusLiveTelemetry(b);
+    const statusText = tele.status === "enroute" ? "กำลังวิ่ง" : tele.status === "scheduled" ? "รอออก" : "ถึงแล้ว";
+    const statusCls = tele.status;
+    const isFocused = focusedBusId === b.id ? "active" : "";
+
+    return `
+      <div class="gfd-bus-item ${isFocused}" data-gfd-id="${esc(b.id)}">
+        <div class="gfd-item-head">
+          <span class="gfd-bus-id">FLEET #${esc(b.id)}</span>
+          <span class="gfd-status ${statusCls}">${statusText}</span>
+        </div>
+        <div class="gfd-route">${esc(b.from)} → ${esc(b.to)}</div>
+        <div class="gfd-meta-row">
+          <span>พิกัด: <b>${esc(tele.currentLoc)}</b></span>
+          <span class="gfd-speed">${tele.status === "enroute" ? `${tele.speed} กม./ชม.` : `${b.depart} น.`}</span>
+        </div>
+        <div class="gfd-progress-track">
+          <div class="gfd-progress-fill" style="width:${tele.progress}%"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  listEl.querySelectorAll("[data-gfd-id]").forEach((el) => {
+    el.addEventListener("click", () => focusBusOnMap(el.dataset.gfdId));
+  });
+}
+
+function highlightFleetItem(busId) {
+  document.querySelectorAll(".gfd-bus-item").forEach((el) => {
+    el.classList.toggle("active", el.dataset.gfdId === busId);
+    if (el.dataset.gfdId === busId) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
+}
+
+function focusBusOnMap(busId) {
+  const bus = findBus(busId);
+  if (!bus || !liveMap) return;
+  focusedBusId = busId;
+
+  const sec = $("liveGpsSection");
+  if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const tele = getBusLiveTelemetry(bus);
+  const pos = getBusCoordinates(bus, tele);
+
+  liveMap.flyTo([pos.lat, pos.lng], 10, { duration: 1.2 });
+  const marker = busMarkers.get(busId);
+  if (marker) {
+    if (!liveMap.hasLayer(marker)) marker.addTo(liveMap);
+    setTimeout(() => {
+      marker.openPopup();
+      const btn = document.querySelector(`[data-gps-book="${bus.id}"]`);
+      if (btn) btn.addEventListener("click", () => openBooking(bus.id, state.date));
+    }, 700);
+  }
+  highlightFleetItem(busId);
+}
+
+function setupGpsControls() {
+  document.querySelectorAll("[data-gps-filter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-gps-filter]").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeGpsFilter = btn.dataset.gpsFilter || "all";
+      updateLiveGpsMap();
+    });
+  });
+
+  const fitBtn = $("gpsFitBoundsBtn");
+  if (fitBtn) {
+    fitBtn.addEventListener("click", () => {
+      if (!liveMap) return;
+      const coords = BUSES.map((b) => {
+        const tele = getBusLiveTelemetry(b);
+        const pos = getBusCoordinates(b, tele);
+        return [pos.lat, pos.lng];
+      });
+      if (coords.length) liveMap.fitBounds(coords, { padding: [40, 40] });
+    });
+  }
+
+  const toggleBtn = $("gpsToggleDrawerBtn");
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      const layout = $("gpsMapLayout");
+      if (layout) {
+        layout.classList.toggle("drawer-collapsed");
+        const collapsed = layout.classList.contains("drawer-collapsed");
+        $("gpsDrawerBtnText").textContent = collapsed ? "เปิดรายการรถ" : "ซ่อนรายการรถ";
+        setTimeout(() => liveMap && liveMap.invalidateSize(), 250);
+      }
+    });
+  }
+}
+
+setInterval(() => {
+  if (liveMap) updateLiveGpsMap();
+}, 2500);
+
 /* ================= TABS SWITCHING ================= */
 function switchTab(name) {
   document.querySelectorAll(".nav-link").forEach((b) =>
@@ -236,6 +641,9 @@ function switchTab(name) {
 
   if (name === "tracker") {
     renderTrackerBoard();
+    if (liveMap) setTimeout(() => liveMap.invalidateSize(), 150);
+  } else if (name === "schedules") {
+    if (liveMap) setTimeout(() => liveMap.invalidateSize(), 150);
   } else if (name === "tickets") {
     renderTickets();
   }
@@ -591,7 +999,9 @@ function renderBuses() {
     btn.addEventListener("click", () => openBooking(btn.dataset.book, btn.dataset.date)));
 
   wrap.querySelectorAll("[data-radar]").forEach((btn) =>
-    btn.addEventListener("click", () => openJourneyModal(btn.dataset.radar)));
+    btn.addEventListener("click", () => {
+      focusBusOnMap(btn.dataset.radar);
+    }));
 
   renderStats(outbound);
   updateTrackerCounts();
@@ -1463,6 +1873,15 @@ if (themeToggle) {
     const next = cur === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem("busgo_theme", next); } catch {}
+    if (liveMap) {
+      if (next === "light") {
+        if (darkTileLayer && liveMap.hasLayer(darkTileLayer)) liveMap.removeLayer(darkTileLayer);
+        if (lightTileLayer && !liveMap.hasLayer(lightTileLayer)) lightTileLayer.addTo(liveMap);
+      } else {
+        if (lightTileLayer && liveMap.hasLayer(lightTileLayer)) liveMap.removeLayer(lightTileLayer);
+        if (darkTileLayer && !liveMap.hasLayer(darkTileLayer)) darkTileLayer.addTo(liveMap);
+      }
+    }
   });
 }
 
@@ -1499,5 +1918,6 @@ loadData().then(() => {
   renderPopular();
   loadPromoStrip();
   updateTrackerCounts();
+  initLiveGpsMap();
 });
 checkForUpdate(true);

@@ -1036,6 +1036,524 @@ body {
   border-color: var(--cyan);
 }
 
+/* ================= 6.5 LIVE SATELLITE GPS MAP & FLEET RADAR ================= */
+.live-gps-section {
+  margin-top: 10px;
+  margin-bottom: 36px;
+  animation: fadeIn 0.4s ease-out;
+}
+.gps-panel-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.gps-panel-card::before {
+  content: "";
+  position: absolute;
+  top: -120px;
+  right: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+.gps-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.gph-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.gph-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.pulse-ring {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: radarPulse 1.8s infinite;
+}
+.gph-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.gph-sub {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: 0;
+  max-width: 620px;
+  line-height: 1.5;
+}
+.gps-hud-cluster {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.hud-pill {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 105px;
+}
+.hud-lbl {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+.hud-val {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.highlight-cyan { color: var(--cyan) !important; }
+.highlight-gold { color: #ffd700 !important; }
+
+/* GPS Toolbar */
+.gps-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+.gps-filter-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gps-filter-btn {
+  appearance: none;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.gps-filter-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.gps-filter-btn.active {
+  background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
+  color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 4px 14px var(--primary-glow);
+}
+.gps-quick-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gps-coords-display {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--cyan);
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+/* Map & Fleet Drawer Layout */
+.gps-map-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  height: 520px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  position: relative;
+  background: #090d16;
+}
+.gps-map-layout.drawer-collapsed {
+  grid-template-columns: 1fr;
+}
+.gps-map-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background: #0b0f19;
+}
+.gps-fleet-drawer {
+  background: var(--surface-2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.gps-map-layout.drawer-collapsed .gps-fleet-drawer {
+  display: none;
+}
+.gfd-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+}
+.gfd-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+.gfd-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+}
+.gfd-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gfd-bus-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gfd-bus-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--cyan);
+  transform: translateX(-2px);
+}
+.gfd-bus-item.active {
+  border-color: #ffd700;
+  background: rgba(201, 168, 76, 0.08);
+  box-shadow: 0 0 12px rgba(201, 168, 76, 0.2);
+}
+.gfd-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.gfd-bus-id {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12.5px;
+  color: #ffd700;
+}
+.gfd-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.gfd-status.enroute {
+  background: rgba(6, 182, 212, 0.15);
+  color: var(--cyan);
+}
+.gfd-status.scheduled {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.gfd-status.arrived {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+.gfd-route {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.gfd-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.gfd-speed {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--cyan);
+}
+.gfd-progress-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.gfd-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan), var(--primary));
+  border-radius: 99px;
+}
+
+/* Footer note */
+.gps-panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.gpf-hint b { color: #ffd700; }
+.gpf-telemetry {
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Custom Bus Marker in Leaflet */
+.bus-marker-wrap {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bus-marker-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: rgba(6, 182, 212, 0.35);
+  animation: busPulse 2s infinite;
+  pointer-events: none;
+}
+.bus-marker-pulse.scheduled {
+  background: rgba(245, 158, 11, 0.3);
+}
+.bus-marker-pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.6);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+.bus-marker-pin.scheduled {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.6);
+}
+.bus-marker-pin.arrived {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.6);
+}
+.bus-marker-pin svg {
+  width: 16px;
+  height: 16px;
+}
+.bus-marker-label {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(11, 15, 25, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Station Marker */
+.station-pin {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffd700;
+  border: 2px solid #000;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+}
+
+/* Custom Popup */
+.leaflet-popup-content-wrapper {
+  background: rgba(14, 20, 33, 0.94) !important;
+  border: 1px solid rgba(201, 168, 76, 0.45) !important;
+  border-radius: 16px !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(201, 168, 76, 0.15) !important;
+  color: #f1f5f9 !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+.leaflet-popup-tip {
+  background: rgba(14, 20, 33, 0.94) !important;
+  border: 1px solid rgba(201, 168, 76, 0.45) !important;
+}
+.gps-popup-card {
+  padding: 18px;
+  width: 270px;
+  font-family: var(--font-body);
+}
+.gpc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+}
+.gpc-fleet {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffd700;
+  letter-spacing: 0.5px;
+}
+.gpc-type {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+.gpc-route {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+.gpc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.gpc-cell {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px;
+}
+.gpc-cell small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.gpc-cell b {
+  font-size: 12.5px;
+  color: #ffffff;
+}
+.gpc-speed b {
+  font-family: var(--font-mono);
+  color: var(--cyan);
+}
+.gpc-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #c9a84c 0%, #a88836 100%);
+  color: #0b0f19;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+  padding: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.gpc-btn:hover {
+  background: linear-gradient(135deg, #ffd700 0%, #c9a84c 100%);
+  transform: translateY(-1px);
+}
+
+@keyframes busPulse {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  70% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+
+@media (max-width: 900px) {
+  .gps-map-layout {
+    grid-template-columns: 1fr;
+    height: 580px;
+  }
+  .gps-fleet-drawer {
+    max-height: 200px;
+  }
+}
+
 /* ================= 7. LIVE BUS TRACKER & RADAR (TAB 2) ================= */
 .tracker-hero-card {
   background: var(--surface);
