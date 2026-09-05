@@ -165,17 +165,19 @@ $("loginForm").addEventListener("submit", async (e) => {
     setLoginError("");
     showLogin(false);
     toast("เข้าสู่ระบบสำเร็จ");
-    await refresh();
   } catch (err) {
     setLoginError(err.message || "รหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
     toast(err.message || "เข้าสู่ระบบไม่สำเร็จ", true);
     $("adminPass")?.focus();
+    return;
   } finally {
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = originalBtnHtml;
     }
   }
+  /* โหลดข้อมูลหลังบ้านแยกออกจาก login — ถ้า refresh ล้มเหลวจะไม่กระทบสถานะ login */
+  try { await refresh(); } catch { toast("โหลดข้อมูลล้มเหลว กดรีเฟรชอีกครั้ง", true); }
 });
 $("logoutBtn").addEventListener("click", async () => {
   if (KEY) {
@@ -221,12 +223,48 @@ function renderDash() {
   const todayChecked = bookings.filter((b) => b.date === today && b.status === "checked_in");
 
   $("statCards").innerHTML = `
-    <div class="stat-card hl"><div class="sc-icon"></div><div class="sc-value">${bookings.length}</div><div class="sc-label">การจองทั้งหมด</div></div>
-    <div class="stat-card green"><div class="sc-icon"></div><div class="sc-value">${activeOrChecked.length}</div><div class="sc-label">ตั๋วที่ใช้งานได้ (ยืนยัน/ขึ้นรถ)</div></div>
-    <div class="stat-card purple"><div class="sc-icon"></div><div class="sc-value">${checkedIn.length}</div><div class="sc-label">เช็คอินขึ้นรถแล้ว</div></div>
-    <div class="stat-card gold"><div class="sc-icon"></div><div class="sc-value">฿${revenue.toLocaleString()}</div><div class="sc-label">รายได้รวม</div></div>
-    <div class="stat-card"><div class="sc-icon"></div><div class="sc-value">${buses.length}</div><div class="sc-label">เที่ยวรถในระบบ</div></div>
-    <div class="stat-card"><div class="sc-icon"></div><div class="sc-value">${todayChecked.length}/${todayBookings.length}</div><div class="sc-label">เช็คอินวันนี้ / ตั๋ววันนี้</div></div>`;
+    <div class="stat-card hl">
+      <div class="sc-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </div>
+      <div class="sc-value">${bookings.length}</div>
+      <div class="sc-label">การจองทั้งหมด</div>
+    </div>
+    <div class="stat-card green">
+      <div class="sc-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <div class="sc-value">${activeOrChecked.length}</div>
+      <div class="sc-label">ตั๋วที่ใช้งานได้ (ยืนยัน/ขึ้นรถ)</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="sc-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+      </div>
+      <div class="sc-value">${checkedIn.length}</div>
+      <div class="sc-label">เช็คอินขึ้นรถแล้ว</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="sc-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg>
+      </div>
+      <div class="sc-value">฿${revenue.toLocaleString()}</div>
+      <div class="sc-label">รายได้รวม</div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="15" rx="3"/><path d="M3 10h18M7 19v2M17 19v2M7 15h.01M17 15h.01"/></svg>
+      </div>
+      <div class="sc-value">${buses.length}</div>
+      <div class="sc-label">เที่ยวรถในระบบ</div>
+    </div>
+    <div class="stat-card">
+      <div class="sc-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div class="sc-value">${todayChecked.length}/${todayBookings.length}</div>
+      <div class="sc-label">เช็คอินวันนี้ / ตั๋ววันนี้</div>
+    </div>`;
 
   // เส้นทางยอดนิยม
   const byRoute = {};
