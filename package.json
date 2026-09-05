@@ -1,0 +1,15 @@
+{
+  "name": "busgo",
+  "version": "2.6.1",
+  "description": "BusGo - Smart Transit Systems and Fleet Management Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --check server.js script.js admin.js database.js theme-boot.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "BusGo Development Team",
+  "license": "MIT"
+}
