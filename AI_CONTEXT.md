@@ -138,6 +138,24 @@
     - ตัวเลือกวันเดินทางด่วน (วันนี้ / พรุ่งนี้ / มะรืนนี้) และตัวเลือกการจัดเรียง (เวลาออก, ราคา, ที่นั่งว่าง)
     - อัปเดต Semantic Versioning เป็น **2.0.0** ทั้งใน server.js, index.html และ script.js
 
+## งานที่ทำแล้ว (v2.0.1 — Operations Console Admin Login & Member Smart Pass UI Redesign)
+
+47. **ยกระดับดีไซน์หน้าเข้าสู่ระบบทั้งระบบ (Admin & Member Auth Interface)**:
+    - **ศูนย์ควบคุมหลังบ้าน Admin Console**:
+      - ออกแบบหน้า Login Overlay สไตล์ Cyber Security Operations Console พร้อมเลเยอร์แสงเรืองรองนีออน (Orb Drift Animation) พื้นหลัง Radial Glassmorphism
+      - แถบสถานะความปลอดภัย SECURE GATEWAY (Restricted Level 4) พร้อมไฟเรดาร์กระพริบ
+      - กล่องไอคอนสถานะการปฏิบัติการ BusGo Operations Console สีทอง-ฟ้า
+      - กล่องกรอกรหัสผ่านพร้อมไอคอน และปุ่มกดเปิด/ปิดตาแสดงรหัสผ่าน (Password Visibility Toggle)
+      - ตัวเลือก "จดจำฉันไว้ในเครื่องนี้ (30 วัน)" พร้อมป้ายแจ้งรหัส Local Dev Hint
+      - ปุ่ม "ออกจากหน้านี้ กลับสู่หน้าหลัก" และแถบ Telemetry ท้ายการ์ด (AUDIT LOG ON, RATE LIMIT GUARD, TLS 256-BIT)
+    - **โมดัลสมาชิก BusGo Smart Pass (หน้าเว็บหลัก)**:
+      - ปรับแต่งการ์ดเข้าสู่ระบบ/สมัครสมาชิกพร้อมแถบเส้นนำแสงสีทอง-ฟ้าด้านบน
+      - กล่องไอคอน Smart Transit Pass พร้อมคำบรรยายสิทธิประโยชน์สมาชิก
+      - ช่องกรอกข้อมูลสไตล์ Cyber พร้อมไอคอน SVG (Username, Phone, Password) และปุ่มสลับดูรหัสผ่าน
+      - แถบสิทธิประโยชน์ 3 ข้อในรูปแบบการ์ดพิลล์ (กรอกไวอัตโนมัติ, ซิงค์ตั๋วเรียลไทม์, สะสมแต้มรางวัล)
+    - **Bump Semantic Versioning เป็น 2.0.1** และอัปเดต Cache-busting query strings `?v=2.0.1` ใน index.html และ admin.html
+
+
 
 ## การแพ็ก ZIP ส่งงาน
 

@@ -1363,6 +1363,19 @@ $("authClose").addEventListener("click", closeAuthModal);
 $("authTabLogin").addEventListener("click", () => switchAuthTab("login"));
 $("authTabRegister").addEventListener("click", () => switchAuthTab("register"));
 
+function bindPasswordToggle(btnId, inputId) {
+  const btn = $(btnId), input = $(inputId);
+  if (btn && input) {
+    btn.addEventListener("click", () => {
+      const isPass = input.type === "password";
+      input.type = isPass ? "text" : "password";
+      btn.style.color = isPass ? "var(--primary)" : "var(--muted)";
+    });
+  }
+}
+bindPasswordToggle("toggleLiPassBtn", "liPass");
+bindPasswordToggle("toggleRgPassBtn", "rgPass");
+
 $("authLoginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const btn = $("loginSubmitBtn");
