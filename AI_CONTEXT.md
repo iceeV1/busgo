@@ -92,7 +92,7 @@
 
 ## งานที่ทำแล้ว (v1.3.x — ธีม + ตกแต่ง + แก้บั๊กจอขาว)
 
-32. **ระบบธีม Light/Dark** (v1.3.0): แปลงสี hardcoded เป็น CSS variable system ทั้งหน้าหลัก+admin, ปุ่มสลับ ☀️/🌙, จำค่า localStorage, theme-boot.js กัน FOUC, `?theme=light|dark` ทาง URL, favicon.svg ใหม่ + รถบัส SVG ใน hero
+32. **ระบบธีม Light/Dark** (v1.3.0): แปลงสี hardcoded เป็น CSS variable system ทั้งหน้าหลัก+admin, ปุ่มสลับ Light/Dark, จำค่า localStorage, theme-boot.js กัน FOUC, `?theme=light|dark` ทาง URL, favicon.svg ใหม่ + รถบัส SVG ใน hero
 33. **บั๊กใหญ่ที่จับได้**: สคริปต์แปลงสีทำ `style.css` ขาดวงเล็บปิด 1 ตัวที่ `.remember-row` → CSS หลังบรรทัดนั้นถูกกลืนทั้งหมด → ธีม/เลย์เอาต์ไม่ทำงาน, จอขาวตัวหนังสือขาว (v1.3.4 แก้ + เขียน checker วงเล็บ) — บทเรียน: แก้ CSS ด้วยสคริปต์ต้องตรวจสมดุลวงเล็บ + เรนเดอร์ภาพจริงเสมอ
 34. **Cache-bust ด้วย query string** `?v=<semver>` ทุก static file (style/script/admin.js ใน index.html + admin.html) — เปลี่ยนเวอร์ชันทุกครั้งที่แก้ไฟล์เหล่านี้ กัน CDN/เบราว์เซอร์ cache เก่า
 35. เลย์เอาต์ v1.3.1–v1.3.2: header 3 ส่วน, hero รถเล็ก 128px, การ์ดสูงเท่ากัน, ปุ่มค้นหาแถวเดียวกับช่องกรอก
@@ -222,6 +222,29 @@
     - **โหลดเร็ว ไม่หน่วง**: ขนาดข้อมูลเพียง ~92 KB รันบน client แบบศูนย์ดีเลย์
     - **มาตรฐานความปลอดภัยและกติกา**: ปราศจาก emoji 100%, ผ่าน `node --check` ครบถ้วน
     - **Bump Semantic Versioning เป็น 2.3.0** และอัปเดต Cache-busting `?v=2.3.0` ทั้งหมด
+
+## งานที่ทำแล้ว (v2.4.0 — Live Driver Cockpit HUD, Geolocation, E-Ticket Image Saver & Admin Reports)
+
+53. **ยกระดับระบบ BusGo สู่เวอร์ชันพรีเมียมสมบูรณ์แบบสำหรับการตรวจงานวิทยาลัย (The Ultimate College Showcase Upgrade)**:
+    - **หน้าปัดห้องคนขับเสมือนจริง (Live Driver Cockpit Telemetry HUD)**:
+      - แสดงเมื่อผู้ใช้คลิกเลือกรถ หรือเลือกจากลิ้นชักรายชื่อรถ
+      - มาตรวัดความเร็วดิจิทัลแบบวงแหวนนีออน (Speedometer Gauge)
+      - คำนวณระยะทางคงเหลือจริงตามแนวถนน (Distance Remaining & Total Km)
+      - สถานีถัดไปและเวลานับถอยหลังโดยประมาณ (Next Stop ETA Countdown)
+      - พิกัดทางหลวงแผ่นดินปัจจุบันและแถบความคืบหน้าการเดินทาง
+    - **ปุ่มหาตำแหน่งของฉัน (Find My Location / Geolocation)**:
+      - ปุ่มไอคอนเรดาร์ระบุตำแหน่งบนแถบเครื่องมือ GPS
+      - ปักหมุดสีฟ้ากระพริบระบุตำแหน่งผู้ใช้พร้อมบอกพิกัดละติจูด/ลองจิจูด
+    - **ระบบบันทึกรูปตั๋วโดยสาร (Save E-Ticket as Image)**:
+      - ปุ่ม "บันทึกรูปตั๋ว" ในแท็บตั๋วของฉัน เรนเดอร์บัตรโดยสาร Electronic Boarding Pass สวยงามผ่าน HTML5 Canvas ความละเอียดสูง
+      - มี QR Code, รหัสตั๋ว, วันที่, หมายเลขที่นั่ง, เส้นทาง, และข้อความความปลอดภัย เซฟเป็นไฟล์ `.png` ลงเครื่องทันที
+    - **ระบบส่งออกรายงานหลังบ้าน (Dual Admin CSV/Excel Reports)**:
+      - ปุ่มส่งออก "รายชื่อผู้โดยสาร (Passenger Manifest CSV)" และ "สรุปยอดขายแยกตามเส้นทาง (Sales Summary CSV)"
+      - ใช้การเข้ารหัส UTF-8 with BOM เพื่อเปิดดูใน Microsoft Excel ได้ภาษาไทย 100% ไม่เพี้ยน พร้อมระบบป้องกัน Formula Injection
+    - **โมดอลสถาปัตยกรรมระบบและผังโครงงาน (Project Architecture & Schema Modal)**:
+      - ปุ่ม "โครงสร้างระบบ & ข้อมูลโครงงาน" ที่ส่วนท้ายหน้าเว็บ แสดงผัง Data Flow, โครงสร้างตารางฐานข้อมูล, และเทคโนโลยี Zero-Dependency
+    - **มาตรฐานความปลอดภัยและกติกา**: ปราศจาก emoji 100% ทุกไฟล์, ผ่าน `node --check` ครบถ้วน
+    - **Bump Semantic Versioning เป็น 2.4.0** และอัปเดต Cache-busting `?v=2.4.0` ทั้งหมด
 
 
 

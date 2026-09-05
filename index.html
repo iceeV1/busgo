@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/leaflet.css" />
-  <link rel="stylesheet" href="/style.css?v=2.3.0" />
+  <link rel="stylesheet" href="/style.css?v=2.4.0" />
 </head>
 <body>
 
@@ -276,6 +276,10 @@
             </button>
           </div>
           <span class="gps-coords-display" id="gpsLiveCoords">พิกัด: 13.7563° N, 100.5018° E</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="gpsLocateMeBtn" title="ระบุตำแหน่งของฉันบนแผนที่">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
+            <span>พิกัดของฉัน</span>
+          </button>
           <button type="button" class="btn btn-ghost btn-sm" id="gpsFitBoundsBtn" title="ซูมให้เห็นรถทุกคัน">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 9v12h-6M3 15V3h6"/></svg>
             <span>มุมมองทั่วไทย</span>
@@ -303,6 +307,58 @@
             <!-- Dynamically populated via script.js -->
           </div>
         </aside>
+      </div>
+
+      <!-- LIVE DRIVER COCKPIT TELEMETRY HUD -->
+      <div class="gps-cockpit-hud hidden" id="gpsCockpitHud">
+        <div class="gch-header">
+          <div class="gch-title-wrap">
+            <span class="gch-badge">LIVE COCKPIT HUD</span>
+            <h4 class="gch-bus-title" id="gchBusTitle">FLEET #B01 — กรุงเทพฯ → เชียงใหม่</h4>
+            <span class="gch-bus-type" id="gchBusType">VIP 32 ที่นั่ง</span>
+          </div>
+          <div class="gch-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="gchBookBtn">จองคิวรถคันนี้</button>
+            <button type="button" class="btn btn-ghost btn-sm gch-close" id="gchCloseBtn" title="ปิดหน้าปัด">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="gch-grid">
+          <div class="gch-gauge-card">
+            <div class="gch-speed-dial">
+              <svg class="gch-gauge-svg" viewBox="0 0 120 70">
+                <path class="gch-gauge-bg" d="M 15 65 A 45 45 0 0 1 105 65" />
+                <path class="gch-gauge-meter" id="gchGaugeMeter" d="M 15 65 A 45 45 0 0 1 105 65" />
+              </svg>
+              <div class="gch-speed-val" id="gchSpeedVal">85</div>
+              <div class="gch-speed-unit">กม./ชม.</div>
+            </div>
+            <div class="gch-gauge-sub" id="gchSpeedSub">ความเร็วปกติ (ทางหลวง)</div>
+          </div>
+          <div class="gch-metric-card">
+            <span class="gch-label">ระยะทางคงเหลือ</span>
+            <b class="gch-val" id="gchDistanceRemain">184 กม.</b>
+            <span class="gch-sub" id="gchDistanceTotal">จากระยะทางรวม 732 กม.</span>
+          </div>
+          <div class="gch-metric-card">
+            <span class="gch-label">สถานีถัดไป</span>
+            <b class="gch-val" id="gchNextStation">ลำปาง</b>
+            <span class="gch-sub" id="gchEtaCountdown">อีกประมาณ 42 นาที</span>
+          </div>
+          <div class="gch-metric-card">
+            <span class="gch-label">ความคืบหน้าการเดินทาง</span>
+            <b class="gch-val" id="gchProgressPct">68%</b>
+            <div class="gch-bar-track">
+              <div class="gch-bar-fill" id="gchProgressBar" style="width: 68%;"></div>
+            </div>
+          </div>
+          <div class="gch-metric-card">
+            <span class="gch-label">พิกัดทางหลวงปัจจุบัน</span>
+            <b class="gch-val" id="gchHighwayName">ทางหลวง 1 (พหลโยธิน)</b>
+            <span class="gch-sub" id="gchCurrentCoords">18.2888° N, 99.4928° E</span>
+          </div>
+        </div>
       </div>
 
       <div class="gps-panel-footer">
@@ -894,6 +950,61 @@
     </div>
   </div>
 
+  <!-- PROJECT ARCHITECTURE & SYSTEM INFO MODAL -->
+  <div class="modal-overlay hidden" id="projectInfoModal" role="dialog" aria-modal="true" aria-labelledby="projModalTitle">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div class="modal-header-text">
+          <span class="badge badge-accent">COLLEGE PROJECT ARCHITECTURE</span>
+          <h3 class="modal-title" id="projModalTitle">สถาปัตยกรรมระบบและข้อมูลโครงงาน BusGo</h3>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeProjectInfoBtn" aria-label="ปิด">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body project-info-body">
+        <div class="pib-grid">
+          <div class="pib-card">
+            <span class="pib-tag">CORE ARCHITECTURE</span>
+            <h4>สถาปัตยกรรมระบบ (Zero-Dependency)</h4>
+            <p>ออกแบบด้วยสถาปัตยกรรมแบบ Micro-kernel บน Node.js ล้วน (Pure Node.js Native HTTP) ไม่ต้องพึ่งพา npm external dependencies ใดๆ ประมวลผลได้รวดเร็วทันใจ พร้อมทำงานได้ทั้งบน Local และ Production Container</p>
+          </div>
+          <div class="pib-card">
+            <span class="pib-tag">DATABASE SCHEMA</span>
+            <h4>ระบบจัดการข้อมูล (Data Persistence)</h4>
+            <p>ใช้ฐานข้อมูล JSON Document Store ที่ <code>data/db.json</code> จัดเก็บตารางรอบรถ (Buses) และการจอง (Bookings) พร้อมสคริปต์แปลงเป็น SQL <code>busgo_database.sql</code> สำหรับการติดตั้งบนฐานข้อมูลเชิงสัมพันธ์แบบ RDBMS</p>
+          </div>
+          <div class="pib-card">
+            <span class="pib-tag">SECURITY GUARDS</span>
+            <h4>มาตรฐานความปลอดภัย (Enterprise Security)</h4>
+            <p>ป้องกันการโจมตีครอบคลุม: Content-Security-Policy (CSP Level 2), Anti-Brute-force Admin Lockout, Per-IP Rate Limiting (Token Bucket), และการป้องกัน CSV/Excel Formula Injection</p>
+          </div>
+          <div class="pib-card">
+            <span class="pib-tag">TELEMETRY ENGINE</span>
+            <h4>เรดาร์และพิกัดบนถนนจริง (Live GPS Engine)</h4>
+            <p>ผสานภาพถ่ายดาวเทียมความละเอียดสูง (Esri Satellite Hybrid) ร่วมกับข้อมูลพิกัดทางหลวงแผ่นดินจริง 9 เส้นทางหลัก (Road-Accurate Geometry) คำนวณความเร็วและทิศทางการเลี้ยว (Adaptive Bearing) 24 ชม.</p>
+          </div>
+        </div>
+
+        <div class="pib-table-box">
+          <h4>ข้อมูลตารางและโมเดลข้อมูลหลัก</h4>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr><th>โมเดล (Model)</th><th>ฟิลด์ข้อมูลสำคัญ</th><th>หน้าที่การทำงาน</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><b>Buses</b></td><td>id, from, to, depart, arrive, type, price, seats</td><td>จัดการรอบเวลาเดินรถ เที่ยวรถ และประเภทที่นั่ง</td></tr>
+                <tr><td><b>Bookings</b></td><td>code, busId, name, phone, date, seats, total, status, checkedInAt</td><td>บันทึกการจอง ตั๋วโดยสาร E-Ticket และสถานะเช็คอิน</td></tr>
+                <tr><td><b>Highway Corridors</b></td><td>routeKey, roadCoordinates (lat/lng), distance</td><td>พิกัดทางหลวงแผ่นดินจริงสำหรับเรดาร์ติดตามสด</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer class="footer">
     <div class="container footer-content">
@@ -905,6 +1016,7 @@
         <a href="#tab-schedules" class="footer-link">ตารางเดินรถ</a>
         <a href="#tab-tracker" class="footer-link">เรดาร์ติดตามสด</a>
         <a href="#tab-tickets" class="footer-link">ตั๋วของฉัน</a>
+        <button type="button" class="footer-link-btn" id="openProjectInfoBtn">โครงสร้างระบบ & ข้อมูลโครงงาน</button>
         <a href="/admin" class="footer-admin-link">ระบบหลังบ้าน (Admin)</a>
       </div>
     </div>
@@ -936,7 +1048,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/leaflet.js"></script>
-  <script src="/routes.js?v=2.3.0"></script>
-  <script src="/script.js?v=2.3.0"></script>
+  <script src="/routes.js?v=2.4.0"></script>
+  <script src="/script.js?v=2.4.0"></script>
 </body>
 </html>

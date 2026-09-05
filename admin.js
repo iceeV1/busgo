@@ -502,25 +502,79 @@ function renderBookings() {
 $("bkRefresh").addEventListener("click", () => { refresh(); toast("รีเฟรชข้อมูลแล้ว"); });
 
 $("csvBtn").addEventListener("click", () => {
-  const head = ["code", "route_from", "route_to", "date", "depart", "name", "phone", "seats", "total", "status", "checked_in_at"];
+  const head = ["รหัสตั๋ว", "ต้นทาง", "ปลายทาง", "วันเดินทาง", "เวลาออก", "ชื่อผู้โดยสาร", "เบอร์โทร", "ที่นั่ง", "ยอดเงิน (บาท)", "สถานะ", "เวลาเช็คอิน"];
   const lines = [head.join(",")];
-  /* [v1.4.1 SEC FIX] กัน CSV/Excel Formula Injection — ชื่อผู้จองเป็นข้อมูลที่คนแปลกหน้ากรอกเองได้
-     ถ้าตั้งชื่อขึ้นต้นด้วย = + - @ แล้ว admin เปิดไฟล์ใน Excel อาจถูกรันสูตร/ลิงก์ประหลาด
-     วิธีมาตรฐาน: เติม ' นำหน้าค่าที่ขึ้นต้นด้วยอักขระกลุ่มนี้ */
+  /* [v1.4.1 SEC FIX] กัน CSV/Excel Formula Injection — ชื่อผู้จองเป็นข้อมูลที่คนแปลกหน้ากรอกเองได้ */
   const safeCell = (v) => /^[=+\-@\t\r]/.test(String(v)) ? "'" + v : v;
   getFilteredBookings().forEach((bk) => {
     const bus = buses.find((x) => x.id === bk.busId) || {};
-    lines.push([safeCell(bk.code), safeCell(bus.from || ""), safeCell(bus.to || ""), bk.date, bus.depart || "",
-      `"${(bk.name || "").replace(/"/g, '""')}"`, bk.phone,
-      `"${bk.seats.join(" ")}"`, bk.total, bk.status, bk.checkedInAt || ""].join(","));
+    const statusText = bk.status === "checked_in" ? "ขึ้นรถแล้ว" : bk.status === "active" ? "ยืนยันแล้ว" : "ยกเลิกแล้ว";
+    lines.push([
+      safeCell(bk.code),
+      safeCell(bus.from || ""),
+      safeCell(bus.to || ""),
+      bk.date,
+      bus.depart || "",
+      `"${safeCell((bk.name || "").replace(/"/g, '""'))}"`,
+      safeCell(bk.phone || ""),
+      `"${bk.seats.join(" ")}"`,
+      bk.total,
+      statusText,
+      bk.checkedInAt ? new Date(bk.checkedInAt).toLocaleString("th-TH") : ""
+    ].join(","));
   });
   const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "busgo_bookings.csv";
+  a.download = `busgo_passenger_manifest_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
+  toast("ส่งออกรายชื่อผู้โดยสาร (CSV) เรียบร้อยแล้ว");
 });
+
+const salesBtn = $("salesSummaryCsvBtn");
+if (salesBtn) {
+  salesBtn.addEventListener("click", () => {
+    const head = ["รหัสเที่ยวรถ", "เส้นทาง", "เวลาออกเดินทาง", "ประเภทรถ", "ราคาตั๋ว", "จำนวนที่นั่งที่ขายได้", "ยอดขายรวม (บาท)", "ขึ้นรถแล้ว (คน)", "ยกเลิก (คน)"];
+    const lines = [head.join(",")];
+
+    buses.forEach((bus) => {
+      const bks = bookings.filter((b) => b.busId === bus.id);
+      const activeBks = bks.filter((b) => b.status === "active" || b.status === "checked_in");
+      const checkedInBks = bks.filter((b) => b.status === "checked_in");
+      const cancelBks = bks.filter((b) => b.status === "cancelled");
+
+      const seatsSold = activeBks.reduce((s, b) => s + (b.seats ? b.seats.length : 0), 0);
+      const totalRev = activeBks.reduce((s, b) => s + (b.total || 0), 0);
+
+      lines.push([
+        bus.id,
+        `"${bus.from} - ${bus.to}"`,
+        bus.depart,
+        bus.type,
+        bus.price,
+        seatsSold,
+        totalRev,
+        checkedInBks.length,
+        cancelBks.length
+      ].join(","));
+    });
+
+    const totalRevenueAll = bookings
+      .filter((b) => b.status === "active" || b.status === "checked_in")
+      .reduce((s, b) => s + (b.total || 0), 0);
+    lines.push([]);
+    lines.push(["", "", "", "", "ยอดรวมทั้งระบบ", "", totalRevenueAll, "", ""].join(","));
+
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `busgo_sales_summary_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("ส่งออกรายงานสรุปยอดขาย (CSV) เรียบร้อยแล้ว");
+  });
+}
 
 /* ================= BUSES MANAGEMENT ================= */
 function renderBuses() {

@@ -350,6 +350,142 @@ let activeGpsFilter = "all";
 let focusedBusId = null;
 let currentMapStyle = localStorage.getItem("busgo_map_style") || "satellite";
 let mapTileLayers = {};
+let activeCockpitBusId = null;
+let userLocationMarker = null;
+
+function getPathDistanceKm(path) {
+  if (!path || path.length < 2) return 500;
+  let total = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const [lat1, lon1] = path[i];
+    const [lat2, lon2] = path[i + 1];
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    total += R * c;
+  }
+  return Math.round(total);
+}
+
+function showCockpitHud(busId) {
+  const bus = findBus(busId);
+  if (!bus) return;
+  activeCockpitBusId = busId;
+  const hud = $("gpsCockpitHud");
+  if (hud) {
+    hud.classList.remove("hidden");
+    updateCockpitHud();
+  }
+}
+
+function hideCockpitHud() {
+  activeCockpitBusId = null;
+  const hud = $("gpsCockpitHud");
+  if (hud) hud.classList.add("hidden");
+}
+
+function updateCockpitHud() {
+  if (!activeCockpitBusId) return;
+  const bus = findBus(activeCockpitBusId);
+  const hud = $("gpsCockpitHud");
+  if (!bus || !hud || hud.classList.contains("hidden")) return;
+
+  const tele = getBusLiveTelemetry(bus);
+  const info = TYPE_INFO[bus.type] || {};
+  const roadPath = getRoadPath(bus.from, bus.to);
+  const totalDist = roadPath ? getPathDistanceKm(roadPath) : 500;
+  const remainDist = Math.max(0, Math.round(totalDist * (1 - tele.progress / 100)));
+
+  if ($("gchBusTitle")) $("gchBusTitle").textContent = `FLEET #${bus.id} — ${bus.from} → ${bus.to}`;
+  if ($("gchBusType")) $("gchBusType").textContent = `${info.label || bus.type} · ออก ${bus.depart} - ถึง ${bus.arrive} น.`;
+  if ($("gchSpeedVal")) $("gchSpeedVal").textContent = tele.status === "enroute" ? tele.speed : 0;
+  if ($("gchSpeedSub")) {
+    $("gchSpeedSub").textContent = tele.status === "enroute" ? "ความเร็วปกติ (ทางหลวง)" : tele.status === "scheduled" ? "รอออกเดินทางที่สถานี" : "ถึงปลายทางเรียบร้อย";
+  }
+  if ($("gchDistanceRemain")) $("gchDistanceRemain").textContent = tele.status === "arrived" ? "0 กม." : `${remainDist} กม.`;
+  if ($("gchDistanceTotal")) $("gchDistanceTotal").textContent = `จากระยะทางรวม ${totalDist} กม.`;
+  if ($("gchNextStation")) $("gchNextStation").textContent = tele.nextStop;
+  if ($("gchEtaCountdown")) $("gchEtaCountdown").textContent = tele.etaText || "ปกติ";
+  if ($("gchProgressPct")) $("gchProgressPct").textContent = `${tele.progress}%`;
+  if ($("gchProgressBar")) $("gchProgressBar").style.width = `${tele.progress}%`;
+
+  const meter = $("gchGaugeMeter");
+  if (meter) {
+    const maxSpeed = 120;
+    const spd = tele.status === "enroute" ? Math.min(maxSpeed, tele.speed) : 0;
+    const offset = 141 - (spd / maxSpeed) * 141;
+    meter.style.strokeDashoffset = offset;
+  }
+
+  const pos = getBusCoordinates(bus, tele);
+  if ($("gchCurrentCoords")) $("gchCurrentCoords").textContent = `${pos.lat.toFixed(4)}° N, ${pos.lng.toFixed(4)}° E`;
+
+  const hw = $("gchHighwayName");
+  if (hw) {
+    if (bus.from.includes("เชียงใหม่") || bus.to.includes("เชียงใหม่")) hw.textContent = "ทางหลวง 32 / 1 (พหลโยธิน)";
+    else if (bus.from.includes("ขอนแก่น") || bus.to.includes("ขอนแก่น") || bus.to.includes("โคราช") || bus.from.includes("โคราช") || bus.to.includes("อุดร")) hw.textContent = "ทางหลวง 2 (ถนนมิตรภาพ / M6)";
+    else if (bus.from.includes("ภูเก็ต") || bus.to.includes("ภูเก็ต") || bus.to.includes("หาดใหญ่") || bus.from.includes("หาดใหญ่") || bus.to.includes("สุราษฎร์")) hw.textContent = "ทางหลวง 35 (พระราม 2) / ทล.4";
+    else if (bus.from.includes("พัทยา") || bus.to.includes("พัทยา")) hw.textContent = "ทางหลวงพิเศษ 7 (มอเตอร์เวย์)";
+    else if (bus.to.includes("แม่ฮ่องสอน") || bus.from.includes("แม่ฮ่องสอน")) hw.textContent = "ทางหลวง 1095 (ปาย - แม่ฮ่องสอน)";
+    else hw.textContent = "ทางหลวงแผ่นดิน";
+  }
+
+  const bookBtn = $("gchBookBtn");
+  if (bookBtn) {
+    bookBtn.onclick = () => openBooking(bus.id, state.date);
+  }
+}
+
+function locateUserOnMap() {
+  if (!navigator.geolocation) {
+    showToast("อุปกรณ์ไม่รองรับระบบระบุพิกัด Geolocation", true);
+    return;
+  }
+  if (!liveMap) return;
+
+  showToast("กำลังค้นหาพิกัดของคุณ...");
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      if (userLocationMarker) {
+        liveMap.removeLayer(userLocationMarker);
+      }
+
+      const userIcon = L.divIcon({
+        className: "user-loc-icon",
+        html: `
+          <div class="user-radar-wrap">
+            <div class="user-radar-pulse"></div>
+            <div class="user-radar-dot"></div>
+          </div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+
+      userLocationMarker = L.marker([lat, lng], { icon: userIcon, title: "ตำแหน่งของคุณ" }).addTo(liveMap);
+      userLocationMarker.bindPopup(`
+        <div style="padding:10px; font-family:var(--font-body); font-size:12px; color:#f8fafc;">
+          <b style="color:#0ea5e9;">ตำแหน่งปัจจุบันของคุณ</b><br/>
+          พิกัด: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E
+        </div>
+      `).openPopup();
+
+      liveMap.flyTo([lat, lng], 12, { duration: 1.5 });
+      showToast("พบพิกัดของคุณแล้ว!");
+    },
+    (err) => {
+      showToast("ไม่สามารถระบุพิกัดได้ (กรุณาอนุญาตการเข้าถึง GPS)", true);
+    },
+    { enableHighAccuracy: true, timeout: 8000 }
+  );
+}
 
 function createBusIcon(bus, tele, bearing) {
   const isEnroute = tele.status === "enroute";
@@ -600,6 +736,7 @@ function updateLiveGpsMap() {
       marker.on("click", () => {
         focusedBusId = bus.id;
         highlightFleetItem(bus.id);
+        showCockpitHud(bus.id);
       });
       if (visible) marker.addTo(liveMap);
       busMarkers.set(bus.id, marker);
@@ -697,6 +834,7 @@ function focusBusOnMap(busId) {
     }, 700);
   }
   highlightFleetItem(busId);
+  showCockpitHud(busId);
 }
 
 function setupGpsControls() {
@@ -741,10 +879,23 @@ function setupGpsControls() {
       }
     });
   }
+
+  const locateBtn = $("gpsLocateMeBtn");
+  if (locateBtn) {
+    locateBtn.addEventListener("click", locateUserOnMap);
+  }
+
+  const gchClose = $("gchCloseBtn");
+  if (gchClose) {
+    gchClose.addEventListener("click", hideCockpitHud);
+  }
 }
 
 setInterval(() => {
-  if (liveMap) updateLiveGpsMap();
+  if (liveMap) {
+    updateLiveGpsMap();
+    updateCockpitHud();
+  }
 }, 2500);
 
 /* ================= TABS SWITCHING ================= */
@@ -1662,6 +1813,160 @@ function updateBadge() {
   });
 }
 
+function downloadTicketImage(bookingCode) {
+  const bk = bookings.find((b) => b.code === bookingCode);
+  if (!bk) {
+    showToast("ไม่พบข้อมูลตั๋วสำหรับบันทึกภาพ", true);
+    return;
+  }
+  const bus = findBus(bk.busId) || {};
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 370;
+  const ctx = canvas.getContext("2d");
+
+  // Background gradient
+  const bgGrad = ctx.createLinearGradient(0, 0, 640, 370);
+  bgGrad.addColorStop(0, "#0b0f19");
+  bgGrad.addColorStop(1, "#111827");
+  ctx.fillStyle = bgGrad;
+  if (ctx.roundRect) ctx.roundRect(0, 0, 640, 370, 16);
+  else ctx.rect(0, 0, 640, 370);
+  ctx.fill();
+
+  // Border gold
+  ctx.strokeStyle = "rgba(201, 168, 76, 0.5)";
+  ctx.lineWidth = 2;
+  if (ctx.roundRect) ctx.roundRect(8, 8, 624, 354, 14);
+  else ctx.rect(8, 8, 624, 354);
+  ctx.stroke();
+
+  // Brand Header
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 24px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillText("Bus", 30, 44);
+  ctx.fillStyle = "#0ea5e9";
+  ctx.fillText("Go", 75, 44);
+
+  ctx.fillStyle = "#ffd700";
+  ctx.font = "bold 12px monospace";
+  ctx.fillText("OFFICIAL ELECTRONIC BOARDING PASS", 30, 66);
+
+  // Status Badge
+  ctx.fillStyle = bk.status === "checked_in" ? "rgba(16, 185, 129, 0.2)" : "rgba(14, 165, 233, 0.2)";
+  ctx.fillRect(470, 24, 140, 30);
+  ctx.fillStyle = bk.status === "checked_in" ? "#34d399" : "#38bdf8";
+  ctx.font = "bold 12px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(bk.status === "checked_in" ? "CHECKED-IN" : "CONFIRMED", 540, 44);
+  ctx.textAlign = "left";
+
+  // Dashed Line
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(30, 84);
+  ctx.lineTo(610, 84);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Route Info
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "11px sans-serif";
+  ctx.fillText("เส้นทางเดินรถ / ROUTE", 30, 108);
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "bold 20px sans-serif";
+  ctx.fillText(`${bus.from || "ต้นทาง"}  →  ${bus.to || "ปลายทาง"}`, 30, 134);
+
+  // Passenger & Travel Date
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "11px sans-serif";
+  ctx.fillText("ผู้โดยสาร / PASSENGER", 30, 170);
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillText(bk.name || "ผู้โดยสาร", 30, 190);
+
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "11px sans-serif";
+  ctx.fillText("วันเดินทาง / DATE", 30, 225);
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillText(`${fmtDate(bk.date)} (ออก ${bus.depart || "—"} น.)`, 30, 245);
+
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "11px sans-serif";
+  ctx.fillText("ที่นั่ง / SEATS", 240, 170);
+  ctx.fillStyle = "#ffd700";
+  ctx.font = "bold 16px monospace";
+  ctx.fillText((bk.seats || []).join(", "), 240, 192);
+
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "11px sans-serif";
+  ctx.fillText("รหัสตั๋ว / TICKET CODE", 240, 225);
+  ctx.fillStyle = "#00f0ff";
+  ctx.font = "bold 16px monospace";
+  ctx.fillText(bk.code, 240, 247);
+
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "11px sans-serif";
+  ctx.fillText("ยอดเงิน / TOTAL", 240, 275);
+  ctx.fillStyle = "#34d399";
+  ctx.font = "bold 15px sans-serif";
+  ctx.fillText(`฿${Number(bk.total || 0).toLocaleString()} ชำระแล้ว`, 240, 295);
+
+  // QR Code render
+  if (typeof QRCode !== "undefined") {
+    const tempDiv = document.createElement("div");
+    new QRCode(tempDiv, {
+      text: bk.code,
+      width: 120,
+      height: 120,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+
+    setTimeout(() => {
+      const img = tempDiv.querySelector("img");
+      if (img && img.src) {
+        const qImg = new Image();
+        qImg.onload = () => {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(475, 105, 130, 130);
+          ctx.drawImage(qImg, 480, 110, 120, 120);
+          finishDownload();
+        };
+        qImg.src = img.src;
+      } else {
+        const qCanvas = tempDiv.querySelector("canvas");
+        if (qCanvas) {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(475, 105, 130, 130);
+          ctx.drawImage(qCanvas, 480, 110, 120, 120);
+        }
+        finishDownload();
+      }
+    }, 60);
+  } else {
+    finishDownload();
+  }
+
+  function finishDownload() {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.fillRect(8, 320, 624, 42);
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "11px sans-serif";
+    ctx.fillText("กรุณาแสดงบัตรโดยสาร E-Ticket นี้ต่อเจ้าหน้าที่ ณ ชานชาลาสถานีขนส่งก่อนขึ้นรถ", 30, 345);
+
+    const link = document.createElement("a");
+    link.download = `BusGo_Ticket_${bk.code}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    showToast("บันทึกรูปตั๋ว E-Ticket เรียบร้อยแล้ว!");
+  }
+}
+
 function renderTickets() {
   const mine = bookings.filter((bk) => myCodes().includes(bk.code)).map(withPii);
   const wrap = $("ticketList");
@@ -1711,6 +2016,10 @@ function renderTickets() {
         <button type="button" class="btn btn-ghost btn-sm" data-radar-ticket="${bus.id}">
           <span class="radar-dot"></span> ติดตามรถคันนี้สด
         </button>` : `<span></span>`}
+        <button type="button" class="btn btn-ghost btn-sm" data-download-ticket="${esc(bk.code)}" title="บันทึกรูปภาพบัตรโดยสาร E-Ticket">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          <span>บันทึกรูปตั๋ว</span>
+        </button>
         ${isActive ? `<button class="cancel-link" data-cancel="${esc(bk.code)}">ยกเลิกการจอง</button>` : `<span></span>`}
       </div>
     </article>`;
@@ -1718,6 +2027,9 @@ function renderTickets() {
 
   wrap.querySelectorAll("[data-radar-ticket]").forEach((btn) =>
     btn.addEventListener("click", () => openJourneyModal(btn.dataset.radarTicket)));
+
+  wrap.querySelectorAll("[data-download-ticket]").forEach((btn) =>
+    btn.addEventListener("click", () => downloadTicketImage(btn.dataset.downloadTicket)));
 
   wrap.querySelectorAll("[data-cancel]").forEach((btn) =>
     btn.addEventListener("click", () => cancelBooking(btn.dataset.cancel)));
@@ -2026,6 +2338,20 @@ async function checkForUpdate(first = false) {
 }
 $("updateReloadBtn").addEventListener("click", () => location.reload());
 setInterval(checkForUpdate, 60000);
+
+/* ================= PROJECT INFO MODAL ================= */
+const openProjBtn = $("openProjectInfoBtn");
+const closeProjBtn = $("closeProjectInfoBtn");
+const projModal = $("projectInfoModal");
+if (openProjBtn && projModal) {
+  openProjBtn.addEventListener("click", () => projModal.classList.remove("hidden"));
+}
+if (closeProjBtn && projModal) {
+  closeProjBtn.addEventListener("click", () => projModal.classList.add("hidden"));
+  projModal.addEventListener("click", (e) => {
+    if (e.target === projModal) projModal.classList.add("hidden");
+  });
+}
 
 /* ================= INITIALIZATION ================= */
 initFilters();

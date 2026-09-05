@@ -260,10 +260,16 @@
           <h2 class="page-title" style="font-size:24px; margin:8px 0 0">รายการจองทั้งหมด</h2>
           <p class="note" style="margin-top:8px">ค้นหาด้วยรหัส / ชื่อ / เบอร์โทร และกรองตามวันที่–สถานะ — การส่งออกอ้างอิงรายการที่เห็น</p>
         </div>
-        <button class="btn btn--ghost focus-ring" id="csvBtn" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/><path d="M8 8l-2 2 2 2"/><path d="M16 16l2-2-2-2"/></svg>
-          Export CSV
-        </button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn--ghost focus-ring" id="csvBtn" type="button" title="ส่งออกข้อมูลรายการจองทั้งหมดที่กรองอยู่">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            รายชื่อผู้โดยสาร (CSV)
+          </button>
+          <button class="btn btn--brass focus-ring" id="salesSummaryCsvBtn" type="button" title="ส่งออกรายงานสรุปยอดขายแยกตามเส้นทาง">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            สรุปยอดขาย (CSV)
+          </button>
+        </div>
       </div>
 
       <div class="filter-row" style="margin-bottom:14px; padding:0 0 4px">

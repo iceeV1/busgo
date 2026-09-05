@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "2.3.0"; // เวอร์ชันระบบ — Feature: Real Road-Geometry Highway Corridors & Road-Following Bus Navigation
+const APP_SEMVER = "2.4.0"; // เวอร์ชันระบบ — Feature: Live Cockpit HUD, Geolocation, E-Ticket Image Saver, and Admin CSV Reports
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
