@@ -22,7 +22,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "2.5.0"; // เวอร์ชันระบบ — Feature: Turbo Engine, GPU Canvas Leaflet, Smooth Marker Glide, Native Gzip, and In-Place DOM Reconciliation
+const APP_SEMVER = "2.6.0"; // เวอร์ชันระบบ — Feature: Zero-Console Error Optimization, Permissions-Policy Calibration, and Resilient Tile Handling
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -42,10 +42,10 @@ const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(self)",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.arcgisonline.com; connect-src 'self' https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.arcgisonline.com; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.arcgisonline.com https://*.cartocdn.com https://*.fastly.net; connect-src 'self' https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.arcgisonline.com https://*.cartocdn.com https://*.fastly.net https://busgo-f3e47-default-rtdb.asia-southeast1.firebasedatabase.app https://*.firebasedatabase.app; base-uri 'none'; form-action 'self'; frame-ancestors 'self'",
 };
 
 function clientIp(req) {
@@ -980,6 +980,9 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith("/api/")) return await handleApi(req, res, p);
     if (p.length > 1 && p.endsWith("/")) p = p.replace(/\/+$/, "") || "/"; // รองรับ /admin/ /database/
     let file = p === "/" ? "/index.html" : p === "/admin" ? "/admin.html" : p === "/database" ? "/database.html" : p;
+    if (p === "/favicon.ico" && !fs.existsSync(path.join(ROOT, "favicon.ico"))) {
+      file = "/favicon.svg";
+    }
     return sendFile(req, res, path.join(ROOT, file));
   } catch (e) {
     console.error("[ERROR]", e.message);

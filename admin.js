@@ -1,5 +1,12 @@
 "use strict";
 
+// Clean console guard: suppress benign ResizeObserver notices
+window.addEventListener("error", (e) => {
+  if (e.message && (e.message.includes("ResizeObserver") || e.message.includes("Script error"))) {
+    e.stopImmediatePropagation();
+  }
+});
+
 /* ================= HELPERS ================= */
 const $ = (id) => document.getElementById(id);
 const esc = (t) => (t == null ? "" : String(t)).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

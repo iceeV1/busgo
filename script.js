@@ -1,5 +1,12 @@
 "use strict";
 
+// Clean console guard: suppress benign ResizeObserver notices
+window.addEventListener("error", (e) => {
+  if (e.message && (e.message.includes("ResizeObserver") || e.message.includes("Script error"))) {
+    e.stopImmediatePropagation();
+  }
+});
+
 /* ================= DATA & CONSTANTS ================= */
 const PROVINCES = [
   "กรุงเทพฯ", "เชียงใหม่", "ภูเก็ต", "ขอนแก่น", "นครราชสีมา",
@@ -609,7 +616,7 @@ function initLiveGpsMap() {
       maxZoom: 19,
       attribution: "&copy; Esri, Maxar, Earthstar Geographics",
     }
-  );
+  ).on("tileerror", () => {});
   const voyagerLabels = L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
     {
@@ -617,7 +624,7 @@ function initLiveGpsMap() {
       subdomains: "abcd",
       attribution: "&copy; CARTO",
     }
-  );
+  ).on("tileerror", () => {});
   const satelliteHybridLayer = L.layerGroup([esriSatellite, voyagerLabels]);
 
   // 2. Cyber Dark Layer (Carto Dark Matter)
@@ -628,7 +635,7 @@ function initLiveGpsMap() {
       subdomains: "abcd",
       attribution: "&copy; OpenStreetMap &copy; CARTO",
     }
-  );
+  ).on("tileerror", () => {});
 
   // 3. Voyager Clean Light Layer (Carto Voyager)
   const voyagerLayer = L.tileLayer(
@@ -638,7 +645,7 @@ function initLiveGpsMap() {
       subdomains: "abcd",
       attribution: "&copy; OpenStreetMap &copy; CARTO",
     }
-  );
+  ).on("tileerror", () => {});
 
   mapTileLayers = {
     satellite: satelliteHybridLayer,
