@@ -278,7 +278,47 @@ function getStationCoord(name, fallbackFrom, fallbackTo) {
   return [(f1[0] + f2[0]) / 2, (f1[1] + f2[1]) / 2];
 }
 
+function getRoadPath(from, to) {
+  if (typeof HIGHWAY_PATHS === "undefined" || !HIGHWAY_PATHS) return null;
+  const fwd = `${from}|${to}`;
+  if (HIGHWAY_PATHS[fwd]) return HIGHWAY_PATHS[fwd];
+  const rev = `${to}|${from}`;
+  if (HIGHWAY_PATHS[rev]) return [...HIGHWAY_PATHS[rev]].reverse();
+
+  for (const [k, pts] of Object.entries(HIGHWAY_PATHS)) {
+    const [kf, kt] = k.split("|");
+    if ((from.includes(kf) || kf.includes(from)) && (to.includes(kt) || kt.includes(to))) {
+      return pts;
+    }
+    if ((from.includes(kt) || kt.includes(from)) && (to.includes(kf) || kf.includes(to))) {
+      return [...pts].reverse();
+    }
+  }
+  return null;
+}
+
 function getBusCoordinates(bus, tele) {
+  const roadPath = getRoadPath(bus.from, bus.to);
+  if (roadPath && roadPath.length >= 2) {
+    const count = roadPath.length;
+    const p = Math.max(0, Math.min(100, tele.progress)) / 100;
+    const scaled = p * (count - 1);
+    const idx = Math.min(count - 2, Math.floor(scaled));
+    const fract = scaled - idx;
+
+    const p1 = roadPath[idx];
+    const p2 = roadPath[idx + 1];
+
+    const lat = p1[0] + (p2[0] - p1[0]) * fract;
+    const lng = p1[1] + (p2[1] - p1[1]) * fract;
+
+    const dLat = p2[0] - p1[0];
+    const dLng = p2[1] - p1[1];
+    let bearing = (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360;
+
+    return { lat, lng, bearing: Math.round(bearing) };
+  }
+
   const waypoints = tele.waypoints && tele.waypoints.length ? tele.waypoints : [bus.from, bus.to];
   const count = waypoints.length;
   if (count <= 1) {
@@ -464,26 +504,35 @@ function initLiveGpsMap() {
   const initialStyle = mapTileLayers[currentMapStyle] ? currentMapStyle : "satellite";
   setMapStyle(initialStyle);
 
-  // Double-layer Highway Route Polylines (Glow underlay + neon route)
-  Object.entries(ROUTE_STATIONS).forEach(([key, stList]) => {
-    const latlngs = stList.map((st) => getStationCoord(st));
-    // Halo glow
-    L.polyline(latlngs, {
-      color: "#0284c7",
-      weight: 5.5,
-      opacity: 0.28,
-      lineCap: "round",
-      lineJoin: "round",
-    }).addTo(liveMap);
-    // Core neon line
-    L.polyline(latlngs, {
-      color: "#38bdf8",
-      weight: 2.2,
-      opacity: 0.9,
-      dashArray: "6, 8",
-      lineCap: "round",
-    }).addTo(liveMap);
-  });
+  // Double-layer Highway Route Polylines following actual roads
+  const pathsToDraw = (typeof HIGHWAY_PATHS !== "undefined" && HIGHWAY_PATHS) ? Object.values(HIGHWAY_PATHS) : null;
+  if (pathsToDraw && pathsToDraw.length > 0) {
+    pathsToDraw.forEach((latlngs) => {
+      // Highway asphalt / ambient halo glow
+      L.polyline(latlngs, {
+        color: "#0284c7",
+        weight: 5.5,
+        opacity: 0.32,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(liveMap);
+      // High-precision road corridor neon line
+      L.polyline(latlngs, {
+        color: "#38bdf8",
+        weight: 2.4,
+        opacity: 0.92,
+        dashArray: "6, 8",
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(liveMap);
+    });
+  } else {
+    Object.entries(ROUTE_STATIONS).forEach(([key, stList]) => {
+      const latlngs = stList.map((st) => getStationCoord(st));
+      L.polyline(latlngs, { color: "#0284c7", weight: 5.5, opacity: 0.28, lineCap: "round", lineJoin: "round" }).addTo(liveMap);
+      L.polyline(latlngs, { color: "#38bdf8", weight: 2.2, opacity: 0.9, dashArray: "6, 8", lineCap: "round" }).addTo(liveMap);
+    });
+  }
 
   // Station Terminal Markers
   const uniqueStations = new Set();
