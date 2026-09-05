@@ -2271,6 +2271,15 @@ body {
   cursor: pointer;
 }
 
+.admin-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 540px) {
+  .admin-nav span { display: none; }
+}
+
 /* ================= 19. RESPONSIVE BREAKPOINTS ================= */
 @media (max-width: 1024px) {
   .hero-content-grid { grid-template-columns: 1fr; }
