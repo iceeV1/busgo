@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "2.1.1"; // เวอร์ชันระบบ — Patch: Volumetric Isometric 3D Vehicles & Layered Parallax Engine
+const APP_SEMVER = "2.0.2"; // เวอร์ชันระบบ — Patch: 24/7 Live 2D GPS Radar Telemetry Map
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
