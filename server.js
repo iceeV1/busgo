@@ -21,7 +21,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "1.4.3"; // เวอร์ชันระบบ — Patch: bug hunt (ผังที่นั่งทางเดินกลางแถว, PUT bus กันซ้ำ, adminFails memory leak, addMyCode dedupe)
+const APP_SEMVER = "2.0.0"; // เวอร์ชันระบบ — Major: Next-Gen Smart Transit UI, Live Radar & FIDS Telemetry System
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();

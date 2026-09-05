@@ -3,306 +3,677 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BusGo — จองตั๋วรถบัสออนไลน์</title>
+  <meta name="color-scheme" content="light dark" />
+  <title>BusGo — ระบบจองคิวและติดตามรอบรถบัสอัจฉริยะ</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <script src="/theme-boot.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=1.4.2" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css?v=2.0.0" />
 </head>
 <body>
 
-  <header class="header">
+  <!-- TOP STATUS BANNER (LIVE SYSTEM TICKER) -->
+  <aside class="live-ticker-banner" aria-label="สถานะระบบสด">
+    <div class="container ticker-flex">
+      <div class="ticker-left">
+        <span class="live-indicator"><span class="radar-dot"></span>LIVE RADAR</span>
+        <span class="ticker-msg" id="liveTickerMsg">ระบบดาวเทียม GPS ออนไลน์ · ติดตามเที่ยวรถแบบเรียลไทม์ 24 ชม.</span>
+      </div>
+      <div class="ticker-right">
+        <span class="system-time" id="systemClock">--:--:-- น.</span>
+        <span class="ticker-badge">ตรงเวลา 99.6%</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN HEADER -->
+  <header class="header" id="topHeader">
     <div class="container header-inner">
-      <div class="logo"><span>Bus<span class="logo-accent">Go</span></span></div>
-      <nav class="nav">
-        <button class="nav-link active" data-tab="schedules">ตารางเดินรถ</button>
-        <button class="nav-link" data-tab="tickets">ตั๋วของฉัน <span id="ticketBadge" class="badge-count hidden">0</span></button>
-      </nav>
-      <!-- [v1.3.0] สมาชิก: ปุ่มเข้าสู่ระบบ / กล่องผู้ใช้ + logout + สลับธีม -->
-      <div class="auth-area">
+      <a class="logo" href="/" aria-label="BusGo หน้าแรก">
+        <div class="logo-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="logo-svg">
+            <rect x="3" y="4" width="18" height="15" rx="3"></rect>
+            <path d="M3 10h18M7 19v2M17 19v2M7 15h.01M17 15h.01"></path>
+          </svg>
+        </div>
+        <div class="logo-text-group">
+          <span class="logo-title">Bus<span class="logo-accent">Go</span></span>
+          <span class="logo-tagline">SMART TRANSIT</span>
+        </div>
+      </a>
+
+      <!-- DESKTOP NAV -->
+      <nav class="nav" aria-label="เมนูหลัก">
+        <button class="nav-link active" data-tab="schedules" id="tabBtnSchedules">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span>ตารางเดินรถ</span>
+        </button>
+        <button class="nav-link" data-tab="tracker" id="tabBtnTracker">
+          <span class="radar-ping-icon"></span>
+          <span>เรดาร์ติดตามสด</span>
+          <span class="nav-pill-badge" id="trackerLiveCount">0 คัน</span>
+        </button>
+        <button class="nav-link" data-tab="tickets" id="tabBtnTickets">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"></path></svg>
+          <span>ตั๋วของฉัน</span>
+          <span id="ticketBadge" class="badge-count hidden">0</span>
+        </button>
+
+        <span class="divider-v" aria-hidden="true"></span>
+
         <button class="theme-toggle" id="themeToggle" type="button" title="สลับโหมดสว่าง/มืด" aria-label="สลับโหมดสว่าง/มืด">
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8z"/></svg>
         </button>
+
         <button class="btn btn-ghost btn-sm auth-btn" id="authBtn">เข้าสู่ระบบ / สมัครสมาชิก</button>
         <div id="userBox" class="user-box hidden">
           <span class="user-dot"></span>
           <span id="userName" class="user-name"></span>
           <button class="nav-link" id="logoutBtn">ออกจากระบบ</button>
         </div>
-      </div>
+      </nav>
     </div>
   </header>
 
+  <!-- HERO SECTION -->
   <section class="hero">
-    <div class="container">
-      <!-- [v1.3.1] ภาพประกอบ: รถบัสเล็ก + ข้อความ เรียงแนวนอน -->
-      <div class="hero-flex">
-        <svg class="hero-art" viewBox="0 0 180 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M6 30h30M2 42h24M10 54h20" stroke="url(#heroGrad)" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
-          <rect x="50" y="12" width="116" height="46" rx="12" fill="url(#heroGrad)"/>
-          <rect x="61" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
-          <rect x="89" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
-          <rect x="117" y="22" width="22" height="14" rx="3" fill="#eef1ff" opacity="0.92"/>
-          <rect x="146" y="24" width="13" height="12" rx="2.5" fill="#eef1ff" opacity="0.55"/>
-          <rect x="50" y="45" width="116" height="5" fill="#0b1020" opacity="0.28"/>
-          <circle cx="74" cy="60" r="9" fill="#1a2240" stroke="#eef1ff" stroke-width="3"/>
-          <circle cx="142" cy="60" r="9" fill="#1a2240" stroke="#eef1ff" stroke-width="3"/>
-          <defs>
-            <linearGradient id="heroGrad" x1="50" y1="12" x2="166" y2="58" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#6366f1"/>
-              <stop offset="1" stop-color="#a855f7"/>
-            </linearGradient>
-          </defs>
-        </svg>
-        <div class="hero-text">
-          <h1 class="hero-title">เดินทางทั่วไทย <span class="gradient-text">ง่าย ไว สบายใจ</span></h1>
-          <p class="hero-sub">ค้นหารอบรถบัส จองคิว เลือกที่นั่ง และรับ e-Ticket ได้ในไม่กี่คลิก</p>
+    <div class="hero-backdrop" aria-hidden="true">
+      <div class="aurora-orb aurora-1"></div>
+      <div class="aurora-orb aurora-2"></div>
+      <div class="grid-mesh"></div>
+    </div>
+
+    <div class="container hero-container">
+      <div class="hero-badge-row">
+        <span class="hero-chip"><span class="pulse-light"></span> NEXT-GEN BUS BOOKING & RADAR</span>
+        <span class="hero-chip-secondary">ครอบคลุมทุกภาคทั่วประเทศ</span>
+      </div>
+
+      <div class="hero-content-grid">
+        <div class="hero-left">
+          <h1 class="hero-title">
+            สัมผัสประสบการณ์เดินทาง<br />
+            <span class="gradient-text">เหนือระดับ แม่นยำ ปลอดภัย</span>
+          </h1>
+          <p class="hero-sub">
+            ค้นหาเที่ยวรถ เช็คสถานะแบบเรียลไทม์ เลือกที่นั่งแบบ Interactive Cabin และรับ Boarding Pass ทันทีที่จอง
+          </p>
+        </div>
+
+        <!-- HERO STATS CARDS -->
+        <div class="hero-quick-metrics">
+          <div class="metric-card">
+            <div class="mc-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="mc-content">
+              <span class="mc-val">฿0</span>
+              <span class="mc-lbl">ไม่มีค่าธรรมเนียมแอบแฝง</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-icon highlight-cyan">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+            </div>
+            <div class="mc-content">
+              <span class="mc-val">GPS Live</span>
+              <span class="mc-lbl">ติดตามพิกัดตลอด 24 ชม.</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-icon highlight-amber">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div class="mc-content">
+              <span class="mc-val">100% Secure</span>
+              <span class="mc-lbl">รับประกันที่นั่งแน่นอน</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <form id="searchForm" class="search-card glass">
-        <div class="trip-pills">
-          <label><input type="radio" name="tripType" value="oneway" checked /><span>เที่ยวเดียว</span></label>
-          <label><input type="radio" name="tripType" value="roundtrip" /><span>ไป–กลับ</span></label>
+      <!-- SEARCH CARD -->
+      <form id="searchForm" class="search-card" autocomplete="off">
+        <div class="search-card-header">
+          <div class="trip-pills">
+            <label class="trip-pill-btn"><input type="radio" name="tripType" value="oneway" checked /><span>เที่ยวเดียว</span></label>
+            <label class="trip-pill-btn"><input type="radio" name="tripType" value="roundtrip" /><span>ไป–กลับ</span></label>
+          </div>
+          <div class="quick-date-chips" id="quickDateChips">
+            <button type="button" class="qdate-chip active" data-offset="0">วันนี้</button>
+            <button type="button" class="qdate-chip" data-offset="1">พรุ่งนี้</button>
+            <button type="button" class="qdate-chip" data-offset="2">มะรืนนี้</button>
+          </div>
         </div>
+
         <div class="search-grid">
           <div class="search-field">
-            <label>ต้นทาง</label>
+            <label for="fromSelect"><span class="field-icon origin-icon"></span> ต้นทาง</label>
             <select id="fromSelect"></select>
           </div>
-          <button type="button" id="swapBtn" class="swap-btn" title="สลับเส้นทาง">⇄</button>
+
+          <button type="button" id="swapBtn" class="swap-btn" title="สลับต้นทาง-ปลายทาง" aria-label="สลับต้นทาง-ปลายทาง">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 7h13"/><path d="M17 3l4 4-4 4"/><path d="M17 17H4"/><path d="M7 13l-4 4 4 4"/>
+            </svg>
+          </button>
+
           <div class="search-field">
-            <label>ปลายทาง</label>
+            <label for="toSelect"><span class="field-icon dest-icon"></span> ปลายทาง</label>
             <select id="toSelect"></select>
           </div>
+
           <div class="search-field">
-            <label>วันที่ออกเดินทาง</label>
+            <label for="dateInput"><span class="field-icon cal-icon"></span> วันที่ออกเดินทาง</label>
             <input type="date" id="dateInput" lang="th" />
           </div>
+
           <div class="search-field hidden" id="returnField">
-            <label>วันที่เดินทางกลับ</label>
+            <label for="returnDateInput"><span class="field-icon cal-icon"></span> วันที่เดินทางกลับ</label>
             <input type="date" id="returnDateInput" lang="th" />
           </div>
+
           <div class="search-field">
-            <label>ผู้โดยสาร (Pax)</label>
+            <label for="paxSelect"><span class="field-icon user-icon"></span> ผู้โดยสาร (Pax)</label>
             <select id="paxSelect"></select>
           </div>
+
           <div class="search-field">
-            <label>ประเภทที่นั่ง</label>
+            <label for="typeSelect"><span class="field-icon bus-icon"></span> ประเภทรถ</label>
             <select id="typeSelect">
-              <option value="">ทุกประเภท</option>
-              <option value="vip">VIP (32 ที่นั่ง)</option>
-              <option value="air">ปรับอากาศ (44 ที่นั่ง)</option>
-              <option value="eco">ธรรมดา (48 ที่นั่ง)</option>
+              <option value="">ทุกประเภท (VIP / แอร์ / ธรรมดา)</option>
+              <option value="vip">VIP Luxury (32 ที่นั่ง)</option>
+              <option value="air">ปรับอากาศชั้น 1 (44 ที่นั่ง)</option>
+              <option value="eco">ธรรมดา Express (48 ที่นั่ง)</option>
             </select>
           </div>
-          <button type="submit" class="btn btn-primary search-btn">ค้นหารอบรถ</button>
+
+          <button type="submit" class="btn btn-primary search-btn" id="mainSearchBtn">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>ค้นหารอบรถ</span>
+          </button>
         </div>
       </form>
 
       <div id="recentRow" class="recent-row hidden"></div>
-
       <div class="stats-row" id="statsRow"></div>
       <div id="promoStrip" class="promo-strip hidden"></div>
     </div>
   </section>
 
+  <!-- POPULAR ROUTES SECTION -->
   <section class="container popular-section">
-    <h2 class="section-title">เส้นทางยอดนิยม</h2>
+    <div class="section-head-flex">
+      <div>
+        <h2 class="section-title">เส้นทางยอดนิยม</h2>
+        <p class="section-sub">เลือกลัดสู่เส้นทางที่มีรอบรถวิ่งตลอดวัน</p>
+      </div>
+      <button type="button" class="link-btn-alt" id="viewAllRoutesBtn">ดูทุกเส้นทาง</button>
+    </div>
     <div id="popularRoutes" class="route-chips"></div>
   </section>
 
+  <!-- TAB 1: SCHEDULES & BOOKING -->
   <main class="container page" id="tab-schedules">
-    <div class="results-header">
-      <h2 id="resultsTitle">รอบรถวันนี้</h2>
-      <span id="resultsCount" class="muted"></span>
+    <div class="results-header-box">
+      <div class="rh-left">
+        <h2 id="resultsTitle" class="rh-title">รอบรถวันนี้</h2>
+        <span id="resultsCount" class="rh-count">กำลังโหลดข้อมูล...</span>
+      </div>
+      <div class="rh-right">
+        <div class="sort-selector">
+          <label for="sortSelect">จัดเรียง:</label>
+          <select id="sortSelect">
+            <option value="depart_asc">เวลาออก: เร็วสุด</option>
+            <option value="price_asc">ราคา: ต่ำไปสูง</option>
+            <option value="price_desc">ราคา: สูงไปต่ำ</option>
+            <option value="seats_desc">ที่นั่งว่างมากสุด</option>
+          </select>
+        </div>
+      </div>
     </div>
+
     <div id="busList" class="bus-grid"></div>
+
     <div id="emptyState" class="empty-state hidden">
-      <div class="empty-icon"></div>
-      <h3>ไม่พบรอบรถ</h3>
-      <p>ลองเปลี่ยนเส้นทาง วันที่ หรือประเภทรถ แล้วค้นหาอีกครั้ง</p>
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </div>
+      <h3>ไม่พบรอบรถในเงื่อนไขที่ค้นหา</h3>
+      <p>ลองเปลี่ยนเส้นทาง วันที่เดินทาง หรือปรับประเภทรถ เพื่อดูรอบรถอื่นๆ ที่ให้บริการ</p>
+      <button type="button" class="btn btn-ghost" id="resetFiltersBtn">รีเซ็ตการค้นหา</button>
     </div>
   </main>
 
+  <!-- TAB 2: LIVE BUS TRACKER & RADAR (24/7 LIVE FIDS BOARD) -->
+  <main class="container page hidden" id="tab-tracker">
+    <div class="tracker-hero-card">
+      <div class="th-top">
+        <div class="th-title-group">
+          <div class="th-tag"><span class="radar-dot"></span> LIVE SATELLITE TELEMETRY</div>
+          <h2>ศูนย์เรดาร์ติดตามรอบรถสดทั่วไทย</h2>
+          <p class="muted">ตรวจสอบตำแหน่ง ความเร็ว จุดแวะพัก และประเมินเวลาถึงปลายทางของรถบัสทุกคันแบบเรียลไทม์</p>
+        </div>
+        <div class="th-stat-cluster">
+          <div class="th-stat-pill">
+            <span class="tsp-val highlight-cyan" id="trackActiveCount">0</span>
+            <span class="tsp-lbl">กำลังวิ่งบนถนน</span>
+          </div>
+          <div class="th-stat-pill">
+            <span class="tsp-val highlight-amber" id="trackUpcomingCount">0</span>
+            <span class="tsp-lbl">รอออกเดินทาง</span>
+          </div>
+          <div class="th-stat-pill">
+            <span class="tsp-val" id="trackArrivedCount">0</span>
+            <span class="tsp-lbl">ถึงปลายทางแล้ว</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRACKER CONTROLS -->
+      <div class="tracker-filter-bar">
+        <div class="tf-tabs" id="trackerFilterTabs">
+          <button type="button" class="tf-tab-btn active" data-filter="all">ทั้งหมด (<span id="countAllBuses">0</span>)</button>
+          <button type="button" class="tf-tab-btn" data-filter="enroute"><span class="dot-running"></span> กำลังวิ่ง (<span id="countEnrouteBuses">0</span>)</button>
+          <button type="button" class="tf-tab-btn" data-filter="scheduled">รอออกเดินทาง (<span id="countScheduledBuses">0</span>)</button>
+          <button type="button" class="tf-tab-btn" data-filter="arrived">ถึงปลายทางแล้ว (<span id="countArrivedBuses">0</span>)</button>
+        </div>
+
+        <div class="tf-search">
+          <input type="text" id="trackerSearchInput" placeholder="ค้นหาตามรหัสรถ เช่น B01 หรือเมือง..." />
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVE BUSES BOARD (FIDS TRANSIT CARDS) -->
+    <div class="tracker-board" id="trackerBoard">
+      <!-- Generated via JS -->
+    </div>
+  </main>
+
+  <!-- TAB 3: MY TICKETS & CROSS-DEVICE LOOKUP -->
   <main class="container page hidden" id="tab-tickets">
-    <div class="results-header"><h2>ตั๋วของฉัน</h2></div>
+    <div class="results-header-box">
+      <div>
+        <h2 class="rh-title">ตั๋วของฉัน (My Tickets)</h2>
+        <p class="muted small">ตั๋วเดินทางและประวัติการจองทั้งหมดของคุณบนระบบ BusGo</p>
+      </div>
+      <div id="pointsBar" class="points-bar hidden"></div>
+    </div>
 
     <!-- TICKET LOOKUP CARD (CROSS-DEVICE) -->
-    <div class="glass ticket-lookup-card">
+    <div class="ticket-lookup-card">
       <div class="ticket-lookup-head">
-        <span class="ticket-lookup-title">ค้นหาตั๋วข้ามเครื่อง</span>
-        <span class="muted small">กรณีเปลี่ยนอุปกรณ์หรือล้างข้อมูลเบราว์เซอร์</span>
+        <div class="tl-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-4.35-4.35M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"/></svg>
+        </div>
+        <div>
+          <span class="ticket-lookup-title">ค้นหาตั๋วข้ามเครื่อง / กู้คืนตั๋ว</span>
+          <p class="muted small">หากเปลี่ยนอุปกรณ์ ใช้เบราว์เซอร์ใหม่ หรือล้างประวัติ แค่กรอกรหัสตั๋วและเบอร์โทรศัพท์</p>
+        </div>
       </div>
-      <p class="ticket-lookup-sub">กรอกรหัสตั๋วและเบอร์โทรศัพท์ที่ใช้จองเพื่อดึงข้อมูลตั๋วมายังเครื่องนี้</p>
-      <form id="lookupForm" class="ticket-lookup-form">
+      <form id="lookupForm" class="ticket-lookup-form" autocomplete="off">
         <div class="search-field">
-          <label>รหัสตั๋ว</label>
-          <input type="text" id="lookupCode" placeholder="เช่น BG-A1B2C3" autocomplete="off" autocapitalize="characters" required />
+          <label for="lookupCode">รหัสตั๋ว</label>
+          <input type="text" id="lookupCode" placeholder="เช่น BG-2205FB" autocomplete="off" autocapitalize="characters" required />
         </div>
         <div class="search-field">
-          <label>เบอร์โทรศัพท์ที่ใช้จอง</label>
+          <label for="lookupPhone">เบอร์โทรศัพท์ที่ใช้จอง</label>
           <input type="tel" id="lookupPhone" placeholder="08x-xxx-xxxx" maxlength="10" inputmode="numeric" autocomplete="tel" required />
         </div>
-        <button type="submit" id="lookupBtn" class="btn btn-primary">ค้นหาตั๋ว</button>
+        <button type="submit" id="lookupBtn" class="btn btn-primary">ค้นหาและกู้คืนตั๋ว</button>
       </form>
     </div>
 
-    <div id="pointsBar" class="points-bar hidden"></div>
     <div id="ticketList" class="ticket-grid"></div>
+
     <div id="ticketEmpty" class="empty-state hidden">
-      <div class="empty-icon"></div>
-      <h3>ยังไม่มีตั๋ว</h3>
-      <p>ไปจองคิวรถบัสเที่ยวแรกของคุณได้ที่แท็บ "ตารางเดินรถ" หรือค้นหาตั๋วที่มีอยู่ด้านบน</p>
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </div>
+      <h3>ยังไม่มีตั๋วในอุปกรณ์นี้</h3>
+      <p>คุณสามารถจองตั๋วเที่ยวใหม่ได้ทันที หรือค้นหาตั๋วที่เคยจองไว้ด้วยรหัสตั๋วและเบอร์โทรศัพท์ด้านบน</p>
+      <button type="button" class="btn btn-primary" id="goBookFirstBtn">ไปจองคิวรถบัส →</button>
     </div>
   </main>
 
+  <!-- BOOKING MODAL (4-STEP WIZARD) -->
   <div class="modal-overlay hidden" id="bookingModal">
-    <div class="modal glass-strong">
+    <div class="modal booking-modal" role="dialog" aria-modal="true" aria-labelledby="modalRoute">
       <div class="modal-head">
-        <div>
+        <div class="mh-info">
+          <div class="modal-badge-row">
+            <span class="modal-step-badge" id="modalStepBadge">ขั้นตอน 1 จาก 4</span>
+            <span class="modal-bus-code" id="modalBusCode">B01</span>
+          </div>
           <h3 id="modalRoute">—</h3>
           <p id="modalMeta" class="muted small"></p>
         </div>
-        <button class="close-btn" id="closeModal">&#215;</button>
+        <button class="close-btn" id="closeModal" type="button" aria-label="ปิด">&#215;</button>
+      </div>
+
+      <!-- PROGRESS TRACK BAR -->
+      <div class="modal-progress-bar">
+        <div class="mp-step active" id="pstep1">1. เลือกที่นั่ง</div>
+        <div class="mp-step" id="pstep2">2. ข้อมูลผู้โดยสาร</div>
+        <div class="mp-step" id="pstep3">3. ชำระเงิน QR</div>
+        <div class="mp-step" id="pstep4">4. รับ e-Ticket</div>
       </div>
 
       <!-- STEP 1 : SEATS -->
-      <div id="stepSeats">
-        <div class="step-label">ขั้นตอน 1/4 · เลือกที่นั่ง</div>
-        <div class="legend">
-          <span><i class="dot dot-free"></i>ว่าง</span>
-          <span><i class="dot dot-taken"></i>ถูกจอง</span>
-          <span><i class="dot dot-selected"></i>ที่เลือก</span>
-        </div>
-        <div class="seat-wrap">
-          <div class="driver">คนขับ</div>
-          <div id="seatMap" class="seat-map"></div>
-        </div>
-        <div class="booking-summary">
-          <div>เลือกแล้ว <b id="selCount">0</b>/<span id="selPaxTotal">1</span> ที่นั่ง (<span id="selSeats">–</span>)
-            <div id="paxHint" class="pax-hint"></div>
+      <div id="stepSeats" class="modal-step-body">
+        <div class="seat-cabin-shell">
+          <div class="cabin-head">
+            <div class="cabin-cockpit">
+              <span class="steering-wheel" title="ตำแหน่งคนขับ">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="9"/><line x1="4.2" y1="16.5" x2="9.4" y2="13.5"/><line x1="19.8" y1="16.5" x2="14.6" y2="13.5"/></svg>
+              </span>
+              <span class="cockpit-lbl">ห้องพนักงานขับรถ</span>
+            </div>
+            <div class="cabin-door">ประตูทางขึ้น-ลง</div>
           </div>
-          <div class="total">฿<span id="selTotal">0</span></div>
+
+          <div class="legend">
+            <span class="legend-item"><i class="dot dot-free"></i>ว่าง</span>
+            <span class="legend-item"><i class="dot dot-selected"></i>ที่นั่งที่เลือก</span>
+            <span class="legend-item"><i class="dot dot-taken"></i>มีผู้จองแล้ว</span>
+          </div>
+
+          <div class="seat-map-viewport">
+            <div id="seatMap" class="seat-map"></div>
+          </div>
         </div>
+
+        <div class="booking-summary">
+          <div class="bs-left">
+            <div>เลือกแล้ว <b id="selCount" class="highlight-gold">0</b>/<span id="selPaxTotal">1</span> ที่นั่ง (<span id="selSeats">–</span>)</div>
+            <div id="paxHint" class="pax-hint">กรุณาเลือกที่นั่งในผัง</div>
+          </div>
+          <div class="bs-right">
+            <div class="total-tag">ยอดรวม</div>
+            <div class="total">฿<span id="selTotal">0</span></div>
+          </div>
+        </div>
+
         <div class="modal-actions">
           <span></span>
-          <button class="btn btn-primary" id="toInfoBtn" disabled>ถัดไป →</button>
+          <button class="btn btn-primary" id="toInfoBtn" disabled>ดำเนินการต่อ: กรอกข้อมูล →</button>
         </div>
       </div>
 
-      <!-- STEP 2 : INFO -->
-      <div id="stepInfo" class="hidden">
-        <div class="step-label">ขั้นตอน 2/4 · ข้อมูลผู้โดยสาร</div>
-        <form id="infoForm" class="info-form">
-          <label>ชื่อ–นามสกุล *
+      <!-- STEP 2 : PASSENGER INFO & PROMO -->
+      <div id="stepInfo" class="modal-step-body hidden">
+        <div class="step-instruct-note">กรุณากรอกข้อมูลสำหรับออก e-Ticket และใช้ยืนยันการขึ้นรถ</div>
+        <form id="infoForm" class="info-form" autocomplete="off">
+          <label>ชื่อ–นามสกุล ผู้โดยสาร *
             <input type="text" id="custName" placeholder="เช่น สมชาย ใจดี" required />
           </label>
-          <label>เบอร์โทรศัพท์ *
+          <label>เบอร์โทรศัพท์ติดต่อ (ใช้ยืนยันตั๋ว) *
             <input type="tel" id="custPhone" placeholder="08x-xxx-xxxx" required inputmode="numeric" autocomplete="tel" maxlength="10" />
           </label>
-          <label>หมายเหตุ (ถ้ามี)
-            <input type="text" id="custNote" placeholder="เช่น ขึ้นที่ป้ายหน้าห้าง" />
+          <label>หมายเหตุ / จุดแวะรับส่ง (ถ้ามี)
+            <input type="text" id="custNote" placeholder="เช่น ขึ้นที่ท่ารถหลัก หรือมีกระเป๋าเดินทางขนาดใหญ่" />
           </label>
-          <label>โค้ดโปรโมชั่น
+          <label>โค้ดโปรโมชั่น / ส่วนลด
             <span class="promo-input-row">
-              <input type="text" id="promoCode" placeholder="เช่น WELCOME10" />
+              <input type="text" id="promoCode" placeholder="เช่น WELCOME10 หรือ TEST50" />
               <button type="button" class="btn btn-ghost btn-sm" id="applyPromoBtn">ใช้โค้ด</button>
             </span>
           </label>
         </form>
+
         <div class="booking-summary">
-          <div><span id="sumRoute"></span><br /><small class="muted" id="sumDetail"></small>
+          <div class="bs-left">
+            <div id="sumRoute" class="bold"></div>
+            <small class="muted" id="sumDetail"></small>
             <div id="discountLine" class="discount-line hidden">ส่วนลด (<span id="discountPct"></span>): −฿<span id="discountAmt">0</span></div>
           </div>
-          <div class="total">฿<span id="sumTotal">0</span></div>
+          <div class="bs-right">
+            <div class="total-tag">ยอดชำระสุทธิ</div>
+            <div class="total highlight-gold">฿<span id="sumTotal">0</span></div>
+          </div>
         </div>
+
         <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="backToSeats">← กลับ</button>
-          <button type="button" class="btn btn-primary" id="confirmBtn">ถัดไป: ชำระเงิน →</button>
+          <button type="button" class="btn btn-ghost" id="backToSeats">← กลับไปเลือกที่นั่ง</button>
+          <button type="button" class="btn btn-primary" id="confirmBtn">ถัดไป: ไปหน้าชำระเงิน →</button>
         </div>
       </div>
 
-      <!-- STEP 3 : PAYMENT -->
-      <div id="stepPay" class="hidden">
-        <div class="step-label">ขั้นตอน 3/4 · ชำระเงิน</div>
+      <!-- STEP 3 : PAYMENT (PROMPTPAY / METHOD) -->
+      <div id="stepPay" class="modal-step-body hidden">
         <div class="pay-methods">
-          <label class="pay-card"><input type="radio" name="payMethod" value="promptpay" checked /><span class="pm-title">QR PromptPay</span><span class="pm-sub">สแกนจ่ายได้ทันที</span></label>
-          <label class="pay-card"><input type="radio" name="payMethod" value="card" /><span class="pm-title">บัตรเครดิต / เดบิต</span><span class="pm-sub">Visa, Mastercard</span></label>
-          <label class="pay-card"><input type="radio" name="payMethod" value="wallet" /><span class="pm-title">e-Wallet</span><span class="pm-sub">TrueMoney, ShopeePay</span></label>
+          <label class="pay-card active">
+            <input type="radio" name="payMethod" value="promptpay" checked />
+            <div class="pm-info">
+              <span class="pm-title">Thai QR PromptPay</span>
+              <span class="pm-sub">สแกนจ่ายผ่านแอปธนาคารทุกแห่งในไทย ฟรีค่าธรรมเนียม</span>
+            </div>
+            <span class="pm-badge">แนะนำ</span>
+          </label>
+          <label class="pay-card">
+            <input type="radio" name="payMethod" value="card" />
+            <div class="pm-info">
+              <span class="pm-title">บัตรเครดิต / เดบิต</span>
+              <span class="pm-sub">Visa, Mastercard, JCB (SSL 256-bit)</span>
+            </div>
+          </label>
+          <label class="pay-card">
+            <input type="radio" name="payMethod" value="wallet" />
+            <div class="pm-info">
+              <span class="pm-title">e-Wallet</span>
+              <span class="pm-sub">TrueMoney, ShopeePay, Rabbit LINE Pay</span>
+            </div>
+          </label>
         </div>
+
         <div id="qrBox" class="qr-box">
           <div class="thai-qr-card">
-            <div class="tqr-head">THAI QR PAYMENT</div>
-            <div class="tqr-promptpay">PromptPay พร้อมเพย์</div>
-            <div id="qrImage" class="tqr-qr"></div>
-            <div class="tqr-amount">฿<span id="qrAmount">0</span></div>
+            <div class="tqr-header-strip">
+              <div class="tqr-brand">THAI QR PAYMENT</div>
+              <div class="tqr-subbrand">PromptPay พร้อมเพย์</div>
+            </div>
+            <div class="tqr-canvas-box">
+              <div id="qrImage" class="tqr-qr"></div>
+              <div class="tqr-scan-line"></div>
+            </div>
+            <div class="tqr-price-box">
+              <span class="tqr-price-lbl">ยอดชำระเงิน</span>
+              <span class="tqr-amount">฿<span id="qrAmount">0</span></span>
+            </div>
             <div class="tqr-merchant" id="qrMerchant"></div>
+            <div class="tqr-expire-note">กรุณาสแกนภายใน 15 นาที เพื่อรักษาสิทธิ์ที่นั่ง</div>
           </div>
-          <p class="muted small">สแกน QR ด้วยแอปธนาคารเพื่อชำระ <b>฿<span id="payAmount">0</span></b></p>
+          <p class="muted small text-center" style="margin-top: 12px;">
+            เปิดแอปธนาคารของคุณ แล้วเลือก <b>"สแกน QR"</b> เพื่อยืนยันการชำระเงิน
+          </p>
         </div>
+
         <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="backToInfo">← กลับ</button>
-          <button type="button" class="btn btn-primary" id="payNowBtn">ชำระเงินและยืนยันการจอง</button>
+          <button type="button" class="btn btn-ghost" id="backToInfo">← กลับไปแก้ข้อมูล</button>
+          <button type="button" class="btn btn-primary" id="payNowBtn">ยืนยันการชำระเงินทันที</button>
         </div>
       </div>
 
-      <!-- STEP 4 : TICKET -->
-      <div id="stepDone" class="hidden">
-        <div class="step-label success">ชำระเงินสำเร็จ! e-Ticket ของคุณ</div>
-        <div class="eticket">
-          <div class="eticket-head">
-            <span class="logo small-logo">BusGo</span>
-            <span id="tkCode" class="tk-code"></span>
-          </div>
-          <div class="eticket-body">
-            <div><small>ผู้โดยสาร</small><b id="tkName"></b></div>
-            <div><small>เส้นทาง</small><b id="tkRoute"></b></div>
-            <div><small>วันที่ / เวลา</small><b id="tkDateTime"></b></div>
-            <div><small>ที่นั่ง</small><b id="tkSeats"></b></div>
-            <div><small>ชำระผ่าน</small><b id="tkPay"></b></div>
-          </div>
-          <div class="eticket-tear"></div>
-          <div class="eticket-foot">
-            <div id="tkQr" class="ticket-qr"></div>
-            <div class="muted small">แสดงรหัสนี้แก่พนักงานก่อนขึ้นรถ</div>
+      <!-- STEP 4 : BOARDING PASS E-TICKET -->
+      <div id="stepDone" class="modal-step-body hidden">
+        <div class="step-label-success">
+          <span class="check-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+          <div>
+            <div class="sl-title">ยืนยันการจองและออกตั๋วสำเร็จ!</div>
+            <div class="sl-sub">บันทึกหรือแคปหน้าจอ Boarding Pass นี้ไว้แสดงแก่เจ้าหน้าที่ก่อนขึ้นรถ</div>
           </div>
         </div>
+
+        <div class="boarding-pass-card" id="printableTicket">
+          <div class="bp-top">
+            <div class="bp-brand">
+              <span class="logo">Bus<span class="logo-accent">Go</span></span>
+              <span class="bp-class-pill" id="tkClassPill">VIP CLASS</span>
+            </div>
+            <div class="bp-code-box">
+              <span class="bp-code-label">TICKET NUMBER</span>
+              <span id="tkCode" class="bp-code-value">BG-XXXXXX</span>
+            </div>
+          </div>
+
+          <div class="bp-body">
+            <div class="bp-grid">
+              <div class="bp-cell">
+                <span class="bp-label">ผู้โดยสาร (PASSENGER)</span>
+                <span id="tkName" class="bp-val">—</span>
+              </div>
+              <div class="bp-cell">
+                <span class="bp-label">เส้นทาง (ROUTE)</span>
+                <span id="tkRoute" class="bp-val highlight-gold">—</span>
+              </div>
+              <div class="bp-cell">
+                <span class="bp-label">วันและเวลาเดินทาง (DEPARTURE)</span>
+                <span id="tkDateTime" class="bp-val">—</span>
+              </div>
+              <div class="bp-cell">
+                <span class="bp-label">หมายเลขที่นั่ง (SEAT NUMBERS)</span>
+                <span id="tkSeats" class="bp-val highlight-cyan">—</span>
+              </div>
+              <div class="bp-cell">
+                <span class="bp-label">สถานะตั๋ว (STATUS)</span>
+                <span class="status-pill status-active">ยืนยันแล้ว (พร้อมขึ้นรถ)</span>
+              </div>
+              <div class="bp-cell">
+                <span class="bp-label">ช่องทางชำระ (PAYMENT)</span>
+                <span id="tkPay" class="bp-val">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="bp-tear-line">
+            <div class="tear-notch left"></div>
+            <div class="tear-dots"></div>
+            <div class="tear-notch right"></div>
+          </div>
+
+          <div class="bp-foot">
+            <div class="bp-qr-wrap">
+              <div id="tkQr" class="ticket-qr"></div>
+            </div>
+            <div class="bp-barcode-group">
+              <div class="bp-barcode-simulated" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <span class="bp-security-hash">DIGITALLY VERIFIED BUSGO SMART PASS</span>
+            </div>
+          </div>
+        </div>
+
         <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="doneClose">ปิด</button>
-          <button type="button" class="btn btn-primary" id="viewTicketsBtn">ดูตั๋วของฉัน →</button>
+          <button type="button" class="btn btn-ghost" id="doneClose">ปิดหน้าต่าง</button>
+          <button type="button" class="btn btn-primary" id="viewTicketsBtn">ไปดูตั๋วของฉัน →</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast hidden"></div>
-
-  <!-- [v1.2.0] AUTH MODAL: LOGIN / REGISTER -->
-  <div class="modal-overlay hidden" id="authModal">
-    <div class="modal glass-strong auth-modal">
+  <!-- LIVE JOURNEY TIMELINE MODAL -->
+  <div class="modal-overlay hidden" id="journeyModal">
+    <div class="modal journey-modal" role="dialog" aria-modal="true" aria-labelledby="journeyTitle">
       <div class="modal-head">
-        <h3 id="authTitle">บัญชีสมาชิก BusGo</h3>
-        <button class="close-btn" id="authClose">&#215;</button>
+        <div class="mh-info">
+          <div class="modal-badge-row">
+            <span class="modal-step-badge highlight-cyan"><span class="radar-dot"></span> LIVE TELEMETRY</span>
+            <span class="modal-bus-code" id="journeyBusId">B01</span>
+          </div>
+          <h3 id="journeyTitle">ไทม์ไลน์การเดินทางสด</h3>
+          <p id="journeySub" class="muted small"></p>
+        </div>
+        <button class="close-btn" id="closeJourneyModal" type="button" aria-label="ปิด">&#215;</button>
+      </div>
+
+      <div class="journey-modal-body">
+        <!-- BUS TELEMETRY BAR -->
+        <div class="telemetry-bar">
+          <div class="tb-item">
+            <span class="tb-lbl">ความเร็วปัจจุบัน</span>
+            <span class="tb-val highlight-cyan" id="jSpeed">-- กม./ชม.</span>
+          </div>
+          <div class="tb-item">
+            <span class="tb-lbl">ตำแหน่งปัจจุบัน</span>
+            <span class="tb-val" id="jCurrentLoc">--</span>
+          </div>
+          <div class="tb-item">
+            <span class="tb-lbl">จุดจอดถัดไป</span>
+            <span class="tb-val highlight-amber" id="jNextStop">--</span>
+          </div>
+          <div class="tb-item">
+            <span class="tb-lbl">เวลาถึงปลายทางโดยประมาณ</span>
+            <span class="tb-val" id="jEta">--:-- น.</span>
+          </div>
+        </div>
+
+        <!-- PROGRESS BAR -->
+        <div class="journey-track-shell">
+          <div class="jts-header">
+            <span>ความคืบหน้าการเดินทาง</span>
+            <b id="jProgressPct" class="highlight-gold">0%</b>
+          </div>
+          <div class="jts-track">
+            <div class="jts-fill" id="jProgressBar" style="width:0%"></div>
+            <div class="jts-bus-marker" id="jBusMarker" style="left:0%">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="3" y="6" width="18" height="12" rx="3"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- STOPS TIMELINE -->
+        <div class="journey-stops-timeline" id="journeyStopsList">
+          <!-- Generated via JS -->
+        </div>
+
+        <!-- BUS AMENITIES & DRIVER -->
+        <div class="journey-vehicle-info">
+          <div class="jvi-card">
+            <span class="jvi-title">ข้อมูลรถและคนขับ</span>
+            <div class="jvi-row"><span>ทะเบียนรถ:</span> <b id="jBusPlate">10-8452 กทม.</b></div>
+            <div class="jvi-row"><span>คนขับประจำรถ:</span> <b id="jDriverName">นายสมเกียรติ มั่นคง (ใบขับขี่ประเภท 2)</b></div>
+            <div class="jvi-row"><span>อุปกรณ์อำนวยความสะดวก:</span> <b>WiFi 5G, เบาะนวดไฟฟ้า, ที่ชาร์จ Type-C, ห้องสุขภัณฑ์</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="closeJourneyBtn">ปิดหน้าต่าง</button>
+        <button type="button" class="btn btn-primary" id="journeyBookThisBtn">จองที่นั่งเที่ยวนี้</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUTH MODAL: LOGIN / REGISTER -->
+  <div class="modal-overlay hidden" id="authModal">
+    <div class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <div class="modal-head">
+        <h3 id="authTitle">บัญชีสมาชิก BusGo Smart Pass</h3>
+        <button class="close-btn" id="authClose" type="button" aria-label="ปิด">&#215;</button>
       </div>
       <div class="auth-tabs">
         <button type="button" class="nav-link active" data-auth="login" id="authTabLogin">เข้าสู่ระบบ</button>
-        <button type="button" class="nav-link" data-auth="register" id="authTabRegister">สมัครสมาชิก</button>
+        <button type="button" class="nav-link" data-auth="register" id="authTabRegister">สมัครสมาชิกใหม่</button>
       </div>
 
-      <form id="authLoginForm" class="info-form">
-        <label>ชื่อบัญชี
+      <form id="authLoginForm" class="info-form" autocomplete="off">
+        <label>ชื่อบัญชี (Username)
           <input type="text" id="liName" required minlength="3" maxlength="80" autocomplete="username" placeholder="ชื่อ–นามสกุลที่ใช้สมัคร" />
         </label>
         <label>รหัสผ่าน
           <input type="password" id="liPass" required minlength="8" autocomplete="current-password" placeholder="รหัสผ่าน 8 ตัวขึ้นไป" />
         </label>
-        <button type="submit" class="btn btn-primary auth-submit" id="loginSubmitBtn">เข้าสู่ระบบ</button>
+        <button type="submit" class="btn btn-primary auth-submit" id="loginSubmitBtn">เข้าสู่ระบบทันที</button>
       </form>
 
-      <form id="authRegisterForm" class="info-form hidden">
+      <form id="authRegisterForm" class="info-form hidden" autocomplete="off">
         <label>ชื่อบัญชี (ใช้เข้าสู่ระบบ ต้องไม่ซ้ำกับผู้อื่น)
           <input type="text" id="rgName" required minlength="3" maxlength="80" autocomplete="username" placeholder="เช่น สมชาย ใจดี" />
         </label>
@@ -312,37 +683,58 @@
         <label>รหัสผ่าน (8-128 ตัวอักษร)
           <input type="password" id="rgPass" required minlength="8" maxlength="128" autocomplete="new-password" />
         </label>
-        <button type="submit" class="btn btn-primary auth-submit" id="registerSubmitBtn">สมัครสมาชิก</button>
+        <button type="submit" class="btn btn-primary auth-submit" id="registerSubmitBtn">สร้างบัญชีสมาชิก</button>
       </form>
 
-      <p class="muted small" style="margin-bottom:0">จำชื่อบัญชีกับรหัสผ่านให้ดี — เป็นสมาชิกแล้วจองได้โดยไม่ต้องกรอกชื่อ–เบอร์ซ้ำ และเปิดดูตั๋วทุกใบได้จากอุปกรณ์ใดก็ได้</p>
+      <p class="muted small" style="padding:0 24px 22px; margin:0">
+        สิทธิประโยชน์สมาชิก: กรอกข้อมูลอัตโนมัติเมื่อจอง, ซิงค์ตั๋วเดินทางข้ามอุปกรณ์ทุกเครื่องทันที, และสะสมแต้มแลกส่วนลด
+      </p>
     </div>
   </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="toast hidden"></div>
 
   <!-- UPDATE NOTIFIER -->
   <div class="update-overlay hidden" id="updateOverlay">
     <div class="update-card">
       <div class="update-icon"><span class="update-glyph">&#10227;</span></div>
-      <h3>ตรวจพบการอัปเดตใหม่!</h3>
-      <p>ระบบมีการอัปเดตเวอร์ชันใหม่ เพื่อให้การจองและข้อมูลที่แสดงเป็นปัจจุบันที่สุด กรุณาโหลดหน้าเว็บใหม่อีกครั้ง</p>
-      <button type="button" class="btn btn-primary update-btn" id="updateReloadBtn">โหลดซ้ำเลย</button>
-      <div class="update-sub">ใช้เวลา / รีเฟรชซ้ำเดิม</div>
-      <div id="updateFoot" class="update-foot">BUILD ARTIFACT DETECTED ON SERVER</div>
+      <h3>ตรวจพบการอัปเดตเวอร์ชันใหม่</h3>
+      <p>ระบบมีการปรับปรุงข้อมูลและผังเที่ยวรถ เพื่อความสดใหม่และแม่นยำที่สุด กรุณารีเฟรชเพื่อรับข้อมูลล่าสุด</p>
+      <button type="button" class="btn btn-primary update-btn" id="updateReloadBtn">รีเฟรชหน้าเว็บ</button>
+      <div id="updateFoot" class="update-foot">SYSTEM ARTIFACT UPGRADED</div>
     </div>
   </div>
 
+  <!-- FOOTER -->
   <footer class="footer">
-    <div class="container">© 2026 BusGo · ระบบจองคิวรถบัสออนไลน์ · โทร 1789
-      · <a href="/admin" class="footer-admin-link">หน้าผู้ดูแลระบบ</a>
+    <div class="container footer-content">
+      <div class="footer-left">
+        <div class="logo">Bus<span class="logo-accent">Go</span></div>
+        <p class="footer-desc">แพลตฟอร์มจองตั๋วรถบัสและเรดาร์ติดตามรอบรถอัจฉริยะอันดับหนึ่งของไทย</p>
+      </div>
+      <div class="footer-links">
+        <a href="#tab-schedules" class="footer-link">ตารางเดินรถ</a>
+        <a href="#tab-tracker" class="footer-link">เรดาร์ติดตามสด</a>
+        <a href="#tab-tickets" class="footer-link">ตั๋วของฉัน</a>
+        <a href="/admin" class="footer-admin-link">ระบบหลังบ้าน (Admin)</a>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <span>© 2026 BusGo Smart Transit Systems. All rights reserved.</span>
       <div id="versionTag" class="version-tag">กำลังตรวจสอบเวอร์ชัน...</div>
     </div>
   </footer>
 
-  <!-- [v1.4.0] MOBILE BOTTOM NAV: แสดงเฉพาะจอ <=760px ทำงานร่วมกับระบบ data-tab เดิม -->
+  <!-- MOBILE BOTTOM NAV (≤760px) -->
   <nav class="tabbar" aria-label="เมนูหลัก (มือถือ)">
     <button type="button" class="nav-link tabbar-btn active" data-tab="schedules">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M3 12h18M7 18l-1.5 2.5M17 18l1.5 2.5"/><circle cx="8" cy="15" r="0.5"/><circle cx="16" cy="15" r="0.5"/></svg>
-      <span>ตารางเดินรถ</span>
+      <span>รอบรถ</span>
+    </button>
+    <button type="button" class="nav-link tabbar-btn" data-tab="tracker">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9"/><path d="M12 7a5 5 0 0 1 5 5"/></svg>
+      <span>เรดาร์สด</span>
     </button>
     <button type="button" class="nav-link tabbar-btn" data-tab="tickets">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M13 6v2M13 11v2M13 16v2"/></svg>
@@ -355,7 +747,6 @@
   </nav>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="/script.js?v=1.4.3"></script>
+  <script src="/script.js?v=2.0.0"></script>
 </body>
 </html>
-
