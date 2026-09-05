@@ -308,13 +308,14 @@ let liveMap = null;
 let busMarkers = new Map();
 let activeGpsFilter = "all";
 let focusedBusId = null;
-let darkTileLayer = null;
-let lightTileLayer = null;
+let currentMapStyle = localStorage.getItem("busgo_map_style") || "satellite";
+let mapTileLayers = {};
 
 function createBusIcon(bus, tele, bearing) {
   const isEnroute = tele.status === "enroute";
   const statusCls = isEnroute ? "enroute" : tele.status === "scheduled" ? "scheduled" : "arrived";
   const pulseHtml = isEnroute ? `<div class="bus-marker-pulse"></div>` : tele.status === "scheduled" ? `<div class="bus-marker-pulse scheduled"></div>` : "";
+  const speedBadge = isEnroute ? `<div class="bus-speed-badge">${tele.speed}k</div>` : "";
   
   return L.divIcon({
     className: "bus-div-icon",
@@ -323,9 +324,10 @@ function createBusIcon(bus, tele, bearing) {
         ${pulseHtml}
         <div class="bus-marker-pin ${statusCls}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(${bearing}deg)">
-            <path d="M12 2L19 21L12 17L5 21L12 2Z"/>
+            <path d="M12 2L19 21L12 17L5 21L12 2Z" fill="currentColor" fill-opacity="0.25"/>
           </svg>
         </div>
+        ${speedBadge}
         <div class="bus-marker-label">${esc(bus.id)}</div>
       </div>
     `,
@@ -376,6 +378,29 @@ function createBusPopupContent(bus, tele) {
   `;
 }
 
+function setMapStyle(styleName) {
+  if (!liveMap || !mapTileLayers[styleName]) return;
+
+  // Remove existing active layers
+  Object.values(mapTileLayers).forEach((layer) => {
+    if (liveMap.hasLayer(layer)) {
+      liveMap.removeLayer(layer);
+    }
+  });
+
+  // Add the chosen layer
+  mapTileLayers[styleName].addTo(liveMap);
+  currentMapStyle = styleName;
+  try {
+    localStorage.setItem("busgo_map_style", styleName);
+  } catch (e) {}
+
+  // Update UI buttons
+  document.querySelectorAll(".gps-style-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mapStyle === styleName);
+  });
+}
+
 function initLiveGpsMap() {
   const mapEl = $("liveGpsMap");
   if (!mapEl || liveMap) return;
@@ -392,28 +417,71 @@ function initLiveGpsMap() {
     scrollWheelZoom: true,
   });
 
-  darkTileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    maxZoom: 19,
-    subdomains: "abcd",
-    attribution: "&copy; OpenStreetMap &copy; CARTO",
-  });
-  lightTileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-    maxZoom: 19,
-    subdomains: "abcd",
-    attribution: "&copy; OpenStreetMap &copy; CARTO",
-  });
+  // 1. Satellite Hybrid Layer (Esri World Imagery + Carto Voyager Labels)
+  const esriSatellite = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      maxZoom: 19,
+      attribution: "&copy; Esri, Maxar, Earthstar Geographics",
+    }
+  );
+  const voyagerLabels = L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
+    {
+      maxZoom: 19,
+      subdomains: "abcd",
+      attribution: "&copy; CARTO",
+    }
+  );
+  const satelliteHybridLayer = L.layerGroup([esriSatellite, voyagerLabels]);
 
-  const isLight = document.documentElement.dataset.theme === "light";
-  (isLight ? lightTileLayer : darkTileLayer).addTo(liveMap);
+  // 2. Cyber Dark Layer (Carto Dark Matter)
+  const cyberDarkLayer = L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    {
+      maxZoom: 19,
+      subdomains: "abcd",
+      attribution: "&copy; OpenStreetMap &copy; CARTO",
+    }
+  );
 
-  // Highway Route Polylines
+  // 3. Voyager Clean Light Layer (Carto Voyager)
+  const voyagerLayer = L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    {
+      maxZoom: 19,
+      subdomains: "abcd",
+      attribution: "&copy; OpenStreetMap &copy; CARTO",
+    }
+  );
+
+  mapTileLayers = {
+    satellite: satelliteHybridLayer,
+    cyberdark: cyberDarkLayer,
+    voyager: voyagerLayer,
+  };
+
+  const initialStyle = mapTileLayers[currentMapStyle] ? currentMapStyle : "satellite";
+  setMapStyle(initialStyle);
+
+  // Double-layer Highway Route Polylines (Glow underlay + neon route)
   Object.entries(ROUTE_STATIONS).forEach(([key, stList]) => {
     const latlngs = stList.map((st) => getStationCoord(st));
+    // Halo glow
     L.polyline(latlngs, {
-      color: "#06b6d4",
+      color: "#0284c7",
+      weight: 5.5,
+      opacity: 0.28,
+      lineCap: "round",
+      lineJoin: "round",
+    }).addTo(liveMap);
+    // Core neon line
+    L.polyline(latlngs, {
+      color: "#38bdf8",
       weight: 2.2,
-      opacity: 0.35,
-      dashArray: "5, 8",
+      opacity: 0.9,
+      dashArray: "6, 8",
+      lineCap: "round",
     }).addTo(liveMap);
   });
 
@@ -423,11 +491,11 @@ function initLiveGpsMap() {
   uniqueStations.forEach((name) => {
     const coord = getStationCoord(name);
     L.circleMarker(coord, {
-      radius: 4,
+      radius: 4.5,
       color: "#ffd700",
       fillColor: "#0b0f19",
-      fillOpacity: 0.9,
-      weight: 1.5,
+      fillOpacity: 0.95,
+      weight: 2,
     }).bindTooltip(name, { permanent: false, direction: "top", className: "station-tooltip" }).addTo(liveMap);
   });
 
@@ -589,6 +657,13 @@ function setupGpsControls() {
       btn.classList.add("active");
       activeGpsFilter = btn.dataset.gpsFilter || "all";
       updateLiveGpsMap();
+    });
+  });
+
+  document.querySelectorAll(".gps-style-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const style = btn.dataset.mapStyle;
+      if (style) setMapStyle(style);
     });
   });
 
@@ -1873,14 +1948,8 @@ if (themeToggle) {
     const next = cur === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem("busgo_theme", next); } catch {}
-    if (liveMap) {
-      if (next === "light") {
-        if (darkTileLayer && liveMap.hasLayer(darkTileLayer)) liveMap.removeLayer(darkTileLayer);
-        if (lightTileLayer && !liveMap.hasLayer(lightTileLayer)) lightTileLayer.addTo(liveMap);
-      } else {
-        if (lightTileLayer && liveMap.hasLayer(lightTileLayer)) liveMap.removeLayer(lightTileLayer);
-        if (darkTileLayer && !liveMap.hasLayer(darkTileLayer)) darkTileLayer.addTo(liveMap);
-      }
+    if (liveMap && currentMapStyle !== "satellite") {
+      setMapStyle(next === "light" ? "voyager" : "cyberdark");
     }
   });
 }

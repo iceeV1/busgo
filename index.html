@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/leaflet.css" />
-  <link rel="stylesheet" href="/style.css?v=2.0.2" />
+  <link rel="stylesheet" href="/style.css?v=2.2.0" />
 </head>
 <body>
 
@@ -261,6 +261,20 @@
           <button type="button" class="gps-filter-btn" data-gps-filter="scheduled">รอออกเดินทาง (<span id="gpsCountScheduled">0</span>)</button>
         </div>
         <div class="gps-quick-tools">
+          <div class="gps-style-selector" id="gpsStyleSelector" role="group" aria-label="เลือกสไตล์แผนที่">
+            <button type="button" class="gps-style-btn active" data-map-style="satellite" title="ภาพถ่ายดาวเทียมความคมชัดสูงระดับโลก">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9"/><path d="M3.6 9h16.8M3.6 15h16.8"/></svg>
+              <span>ดาวเทียมไฮบริด</span>
+            </button>
+            <button type="button" class="gps-style-btn" data-map-style="cyberdark" title="แผนที่มืดสไตล์นีออนเรดาร์">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <span>ดาร์กนีออน</span>
+            </button>
+            <button type="button" class="gps-style-btn" data-map-style="voyager" title="แผนที่สว่างโมเดิร์นคลีน">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              <span>สว่างคลีน</span>
+            </button>
+          </div>
           <span class="gps-coords-display" id="gpsLiveCoords">พิกัด: 13.7563° N, 100.5018° E</span>
           <button type="button" class="btn btn-ghost btn-sm" id="gpsFitBoundsBtn" title="ซูมให้เห็นรถทุกคัน">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 9v12h-6M3 15V3h6"/></svg>
@@ -292,7 +306,7 @@
       </div>
 
       <div class="gps-panel-footer">
-        <span class="gpf-hint">💡 <b>คำแนะนำ:</b> คลิกที่รูปรถบนแผนที่เพื่อดูความเร็วสด เวลานับถอยหลังถึงปลายทาง หรือกดปุ่ม "เรดาร์สด" ที่รอบรถด้านล่างเพื่อโฟกัสพิกัดทันที</span>
+        <span class="gpf-hint"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-2px; margin-right:4px; color:var(--primary);"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><b>คำแนะนำ:</b> คลิกที่รูปรถบนแผนที่เพื่อดูความเร็วสด เวลานับถอยหลังถึงปลายทาง หรือกดปุ่ม "เรดาร์สด" ที่รอบรถด้านล่างเพื่อโฟกัสพิกัดทันที</span>
         <span class="gpf-telemetry">อัตราการส่งข้อมูล: 2.0 วินาที · GPS ความแม่นยำสูง (WGS84)</span>
       </div>
     </div>
@@ -922,6 +936,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/leaflet.js"></script>
-  <script src="/script.js?v=2.0.2"></script>
+  <script src="/script.js?v=2.2.0"></script>
 </body>
 </html>
