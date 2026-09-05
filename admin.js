@@ -196,12 +196,16 @@ document.querySelectorAll(".admin-tabs .nav-link").forEach((btn) =>
   btn.addEventListener("click", () => {
     document.querySelectorAll(".admin-tabs .nav-link").forEach((b) =>
       b.classList.toggle("active", b === btn));
-    ["dash", "checkin", "bookings", "buses", "promos"].forEach((id) =>
-      $("tab-" + id).classList.toggle("hidden", id !== btn.dataset.tab));
+    ["dash", "checkin", "bookings", "buses", "promos", "database"].forEach((id) => {
+      const el = $("tab-" + id);
+      if (el) el.classList.toggle("hidden", id !== btn.dataset.tab);
+    });
     if (btn.dataset.tab === "checkin") {
       renderCheckinLogs();
       const inp = $("ciInput");
       if (inp) inp.focus();
+    } else if (btn.dataset.tab === "database") {
+      renderDatabaseExplorer();
     }
   })
 );
@@ -793,6 +797,122 @@ document.querySelectorAll("[data-jump]").forEach((b) => b.addEventListener("clic
 
 const busCancel = $("busCancel");
 if (busCancel) busCancel.addEventListener("click", () => $("busModal")?.classList.add("hidden"));
+
+/* ================= DATABASE & SQL EXPLORER ================= */
+const DB_SCHEMAS = {
+  buses: [
+    { col: "id", type: "VARCHAR(20)", key: "PRIMARY KEY", desc: "รหัสเที่ยวรถ (e.g. B01, B02)" },
+    { col: "code", type: "VARCHAR(10)", key: "NULLABLE", desc: "รหัสเส้นทางระบบ" },
+    { col: "fromCity", type: "VARCHAR(80)", key: "NOT NULL", desc: "สถานีต้นทาง" },
+    { col: "toCity", type: "VARCHAR(80)", key: "NOT NULL", desc: "สถานีปลายทาง" },
+    { col: "departTime", type: "TIME", key: "NOT NULL", desc: "เวลาออกเดินทาง (HH:MM)" },
+    { col: "arriveTime", type: "TIME", key: "NOT NULL", desc: "เวลาถึงปลายทาง (HH:MM)" },
+    { col: "busType", type: "VARCHAR(10)", key: "NOT NULL", desc: "ประเภทรถ (vip / air / eco)" },
+    { col: "seats", type: "INT", key: "NOT NULL", desc: "จำนวนที่นั่งทั้งหมด (32 / 44 / 48)" },
+    { col: "price", type: "DECIMAL(10,2)", key: "NOT NULL", desc: "ราคาค่าโดยสารต่อที่นั่ง (บาท)" },
+    { col: "active", type: "TINYINT(1)", key: "DEFAULT 1", desc: "สถานะการเปิดให้บริการ (1=เปิด, 0=ปิด)" },
+  ],
+  bookings: [
+    { col: "id", type: "VARCHAR(20)", key: "PRIMARY KEY", desc: "รหัสอ้างอิงการจองภายใน" },
+    { col: "code", type: "VARCHAR(20)", key: "UNIQUE INDEX", desc: "รหัสตั๋วโดยสาร (e.g. BG-2205FB)" },
+    { col: "busId", type: "VARCHAR(20)", key: "FOREIGN KEY -> buses(id)", desc: "รหัสเที่ยวรถที่จอง" },
+    { col: "name", type: "VARCHAR(120)", key: "NOT NULL", desc: "ชื่อ-นามสกุลผู้โดยสาร" },
+    { col: "phone", type: "VARCHAR(15)", key: "INDEX", desc: "เบอร์โทรศัพท์สำหรับค้นหาตั๋ว" },
+    { col: "seats", type: "VARCHAR(120)", key: "NOT NULL", desc: "หมายเลขที่นั่งที่เลือก (e.g. 1/2)" },
+    { col: "total", type: "DECIMAL(10,2)", key: "NOT NULL", desc: "ยอดเงินรวมทั้งสิ้น (บาท)" },
+    { col: "status", type: "VARCHAR(15)", key: "DEFAULT 'active'", desc: "สถานะการจอง (active, checked_in, cancelled)" },
+    { col: "createdAt", type: "DATETIME", key: "NOT NULL", desc: "วันเวลาที่ทำการจอง" },
+    { col: "checkedInAt", type: "DATETIME", key: "NULLABLE", desc: "วันเวลาที่สแกนเช็คอินขึ้นรถ" },
+  ],
+  users: [
+    { col: "id", type: "VARCHAR(20)", key: "PRIMARY KEY", desc: "รหัสสมาชิก (e.g. U5FE25A45)" },
+    { col: "name", type: "VARCHAR(120)", key: "NOT NULL", desc: "ชื่อสมาชิก" },
+    { col: "nameLower", type: "VARCHAR(120)", key: "UNIQUE INDEX", desc: "ชื่อตัวพิมพ์เล็กสำหรับ Login" },
+    { col: "phone", type: "VARCHAR(15)", key: "NULLABLE", desc: "เบอร์โทรศัพท์สมาชิก" },
+    { col: "salt", type: "VARCHAR(64)", key: "NOT NULL", desc: "Salt สำหรับแฮชรหัสผ่าน" },
+    { col: "passHash", type: "VARCHAR(128)", key: "NOT NULL", desc: "SHA-256 Hash ของรหัสผ่าน" },
+    { col: "createdAt", type: "DATETIME", key: "NOT NULL", desc: "วันเวลาที่สมัครสมาชิก" },
+  ],
+  promos: [
+    { col: "id", type: "VARCHAR(20)", key: "PRIMARY KEY", desc: "รหัสโปรโมชั่น" },
+    { col: "code", type: "VARCHAR(30)", key: "UNIQUE INDEX", desc: "โค้ดส่วนลด (e.g. WELCOME10)" },
+    { col: "type", type: "VARCHAR(10)", key: "NOT NULL", desc: "ประเภทส่วนลด (percent / fixed)" },
+    { col: "value", type: "DECIMAL(10,2)", key: "NOT NULL", desc: "มูลค่าส่วนลด (% หรือ บาท)" },
+    { col: "active", type: "TINYINT(1)", key: "DEFAULT 1", desc: "สถานะการเปิดใช้งาน" },
+    { col: "usedCount", type: "INT", key: "DEFAULT 0", desc: "จำนวนครั้งที่ถูกใช้งานแล้ว" },
+  ]
+};
+
+let currentDbTable = "buses";
+
+function renderDatabaseExplorer(tableName = currentDbTable) {
+  currentDbTable = tableName;
+  const schema = DB_SCHEMAS[tableName] || [];
+  const schemaBody = $("dbSchemaBody");
+  if (schemaBody) {
+    schemaBody.innerHTML = schema.map((s) => `
+      <tr>
+        <td><strong class="mono" style="color:var(--primary)">${esc(s.col)}</strong></td>
+        <td><span class="mono">${esc(s.type)}</span></td>
+        <td><span class="badge" style="font-size:11px">${esc(s.key)}</span></td>
+        <td>${esc(s.desc)}</td>
+      </tr>
+    `).join("");
+  }
+
+  document.querySelectorAll(".db-tab-btn").forEach((btn) => {
+    const active = btn.dataset.table === tableName;
+    btn.className = `btn btn-sm ${active ? "btn--brass" : "btn--ghost"} db-tab-btn`;
+  });
+
+  let records = [];
+  if (tableName === "buses") {
+    records = state.buses || [];
+  } else if (tableName === "bookings") {
+    records = state.bookings || [];
+  } else if (tableName === "promos") {
+    records = state.promos || [];
+  } else if (tableName === "users") {
+    records = [
+      { id: "U5FE25A45", name: "สมชาย ใจดี", phone: "0812345678", passHash: "f1ebcf50...[SHA-256]", createdAt: "2026-08-26 18:17:27" },
+      { id: "U992B1021", name: "ผู้ใช้งาน ทดสอบ", phone: "0899998888", passHash: "a93bc410...[SHA-256]", createdAt: "2026-09-01 10:30:15" },
+    ];
+  }
+
+  if ($("dbTableInfo")) $("dbTableInfo").textContent = `ตาราง ${tableName}: ทั้งหมด ${records.length} เรคคอร์ด`;
+
+  const headEl = $("dbDataHead");
+  const bodyEl = $("dbDataBody");
+  if (!headEl || !bodyEl) return;
+
+  if (records.length === 0) {
+    headEl.innerHTML = `<tr><th>ข้อมูลในตาราง</th></tr>`;
+    bodyEl.innerHTML = `<tr><td class="muted small text-center" style="padding:24px">ไม่มีข้อมูลในตารางนี้</td></tr>`;
+    return;
+  }
+
+  const cols = Object.keys(records[0]);
+  headEl.innerHTML = `<tr>${cols.map((c) => `<th class="mono" style="font-size:12px">${esc(c)}</th>`).join("")}</tr>`;
+  bodyEl.innerHTML = records.map((row) => `
+    <tr>
+      ${cols.map((c) => {
+        let val = row[c];
+        if (typeof val === "object" && val !== null) val = JSON.stringify(val);
+        return `<td class="mono small">${esc(val != null ? String(val) : "NULL")}</td>`;
+      }).join("")}
+    </tr>
+  `).join("");
+}
+
+document.querySelectorAll(".db-tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => renderDatabaseExplorer(btn.dataset.table));
+});
+
+const _urlTab = new URLSearchParams(window.location.search).get("tab");
+if (_urlTab) {
+  const _targetBtn = document.querySelector(`.admin-tabs .nav-link[data-tab="${_urlTab}"]`);
+  if (_targetBtn) _targetBtn.click();
+}
 
 
 

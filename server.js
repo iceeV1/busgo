@@ -316,6 +316,7 @@ const MIME = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".ico": "image/x-icon",
+  ".sql": "text/plain; charset=utf-8",
 };
 
 function send(res, status, obj) {
@@ -340,7 +341,7 @@ function sendFile(req, res, filePath) {
 
   /* Whitelist นามสกุลไฟล์ที่อนุญาตให้เปิดเผยทางเว็บ */
   const ext = path.extname(full).toLowerCase();
-  const ALLOWED_EXTS = new Set([".html", ".css", ".js", ".json", ".svg", ".png", ".jpg", ".jpeg", ".ico", ".webp"]);
+  const ALLOWED_EXTS = new Set([".html", ".css", ".js", ".json", ".svg", ".png", ".jpg", ".jpeg", ".ico", ".webp", ".sql"]);
   if (!ALLOWED_EXTS.has(ext)) return send(res, 403, { error: "Forbidden" });
 
   /* บล็อกไฟล์สำคัญ โค้ด backend และสคริปต์รันระบบ */
@@ -366,7 +367,7 @@ function sendFile(req, res, filePath) {
     return res.end();
   }
 
-  const COMPRESSIBLE = new Set([".html", ".css", ".js", ".json", ".svg"]);
+  const COMPRESSIBLE = new Set([".html", ".css", ".js", ".json", ".svg", ".sql"]);
   const acceptEncoding = req.headers["accept-encoding"] || "";
   const canGzip = COMPRESSIBLE.has(ext) && acceptEncoding.includes("gzip");
 

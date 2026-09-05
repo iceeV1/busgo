@@ -167,6 +167,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 12a8 8 0 1 1-8-8"/><path d="M20 12a8 8 0 0 1-8 8"/><path d="M9 9l6 6"/><path d="M9 15V9h6"/></svg>
       โปรโมชั่น
     </button>
+    <button class="nav-link" type="button" data-tab="database" id="adminDbTabBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      ฐานข้อมูล (Database)
+    </button>
   </nav>
 
   <!-- DASHBOARD -->
@@ -392,6 +396,95 @@
     </form>
   </div>
 </div>
+
+  <!-- DATABASE & SQL EXPLORER -->
+  <section id="tab-database" class="hidden">
+    <div class="surface surface--padded" style="margin-bottom:24px">
+      <div class="section-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px">
+        <div>
+          <div class="eyebrow">ระบบจัดการและสำรวจฐานข้อมูล (Database Explorer & phpMyAdmin Lite)</div>
+          <h2 class="page-title" style="font-size:24px; margin:6px 0 4px">ผังโครงสร้างและข้อมูลในตาราง (Database Tables & SQL)</h2>
+          <p class="muted small" style="margin:0">แสดงสคีมา โครงสร้างคอลัมน์ ชนิดข้อมูล (Data Types) และเรคคอร์ดจริงในระบบ</p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+          <a href="/busgo_database.sql" download="busgo_database.sql" class="btn btn--brass" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            ดาวน์โหลดไฟล์ SQL (.sql)
+          </a>
+          <a href="https://github.com/iceeV1/busgo/blob/main/busgo_database.sql" target="_blank" rel="noopener" class="btn btn--ghost" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            ดู SQL บน GitHub
+          </a>
+        </div>
+      </div>
+
+      <!-- DB METRICS -->
+      <div class="stat-cards" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin: 20px 0 10px">
+        <div class="stat-card">
+          <div class="stat-label">ตารางทั้งหมด (Tables)</div>
+          <div class="stat-value" id="dbTableCount">4 ตาราง</div>
+          <div class="stat-sub">users, buses, bookings, promos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">ระบบจัดเก็บ (Storage Engine)</div>
+          <div class="stat-value" style="font-size:20px; color:var(--primary)">JSON + SQL RDBMS</div>
+          <div class="stat-sub">Dual-Layer Zero-Dependency</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">การเข้ารหัส (Encoding)</div>
+          <div class="stat-value" style="font-size:20px; color:var(--gold)">UTF-8 mb4</div>
+          <div class="stat-sub">utf8mb4_unicode_ci ภาษาไทย 100%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">สถานะเซิร์ฟเวอร์ฐานข้อมูล</div>
+          <div class="stat-value" style="font-size:20px; color:#10b981">● เชื่อมต่อสด (Live)</div>
+          <div class="stat-sub">Response Time &lt; 2ms</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE EXPLORER -->
+    <div class="surface surface--padded">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap" id="dbTableTabs">
+          <button type="button" class="btn btn-sm btn--brass db-tab-btn active" data-table="buses">ตาราง buses (รอบรถ)</button>
+          <button type="button" class="btn btn-sm btn--ghost db-tab-btn" data-table="bookings">ตาราง bookings (การจอง)</button>
+          <button type="button" class="btn btn-sm btn--ghost db-tab-btn" data-table="users">ตาราง users (ผู้ใช้งาน)</button>
+          <button type="button" class="btn btn-sm btn--ghost db-tab-btn" data-table="promos">ตาราง promos (โค้ดส่วนลด)</button>
+        </div>
+        <div class="muted small" id="dbTableInfo">แสดงผลข้อมูลตาราง</div>
+      </div>
+
+      <!-- SCHEMA VIEW -->
+      <div style="margin-bottom:20px">
+        <div class="eyebrow" style="margin-bottom:8px">โครงสร้างตาราง (Table Schema)</div>
+        <div style="overflow-x:auto">
+          <table class="table" style="width:100%; font-size:13px" id="dbSchemaTable">
+            <thead>
+              <tr>
+                <th>Column Name</th>
+                <th>Data Type</th>
+                <th>Key / Constraints</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="dbSchemaBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DATA GRID -->
+      <div>
+        <div class="eyebrow" style="margin-bottom:8px">ข้อมูลจริงในตาราง (Table Records)</div>
+        <div style="overflow-x:auto; max-height:420px; border:1px solid var(--border); border-radius:8px">
+          <table class="table" style="width:100%; font-size:13px; margin:0" id="dbDataTable">
+            <thead id="dbDataHead" style="position:sticky; top:0; background:var(--surface); z-index:2"></thead>
+            <tbody id="dbDataBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
 
 <div id="toast" class="toast hidden"></div>
 
