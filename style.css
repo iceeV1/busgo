@@ -1404,7 +1404,20 @@ body {
   color: rgba(255, 255, 255, 0.45);
 }
 
-/* Custom Bus Marker in Leaflet */
+/* Custom Bus Marker in Leaflet & Smooth Glide Transition */
+.leaflet-marker-pane .leaflet-marker-icon.bus-div-icon {
+  transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+.leaflet-container {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+.bus-card,
+.gfd-bus-item,
+.ticket-card {
+  contain: layout style;
+}
 .bus-marker-wrap {
   position: relative;
   width: 36px;
@@ -1449,6 +1462,7 @@ body {
 .bus-marker-pin svg {
   width: 16px;
   height: 16px;
+  transition: transform 0.4s ease;
 }
 .bus-marker-label {
   position: absolute;

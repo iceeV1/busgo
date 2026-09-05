@@ -7,6 +7,7 @@ const http = require("http");
 const fs = require("fs");
 const crypto = require("crypto");
 const path = require("path");
+const zlib = require("zlib");
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -21,7 +22,7 @@ if (IS_PROD && !process.env.ADMIN_KEY) {
   console.error("[FATAL] Missing ADMIN_KEY env - refusing to start on production");
   process.exit(1);
 }
-const APP_SEMVER = "2.4.0"; // เวอร์ชันระบบ — Feature: Live Cockpit HUD, Geolocation, E-Ticket Image Saver, and Admin CSV Reports
+const APP_SEMVER = "2.5.0"; // เวอร์ชันระบบ — Feature: Turbo Engine, GPU Canvas Leaflet, Smooth Marker Glide, Native Gzip, and In-Place DOM Reconciliation
 const APP_VERSION = process.env.RENDER_GIT_COMMIT || String(fs.statSync(__filename).mtimeMs);
 const APP_VERSION_SHORT = APP_VERSION.slice(0, 7);
 const APP_STARTED_AT = new Date().toISOString();
@@ -325,7 +326,7 @@ function send(res, status, obj) {
   });
   res.end(JSON.stringify(obj));
 }
-function sendFile(res, filePath) {
+function sendFile(req, res, filePath) {
   const full = path.normalize(filePath);
   /* กัน path traversal: ต้องอยู่ใน ROOT เท่านั้น */
   const rel = path.relative(ROOT, full);
@@ -349,18 +350,59 @@ function sendFile(res, filePath) {
       base.endsWith(".sh") || full === DB_PATH)
     return send(res, 403, { error: "Forbidden" });
 
-  if (!fs.existsSync(full) || !fs.statSync(full).isFile()) return send(res, 404, { error: "Not Found" });
-  res.writeHead(200, {
-    ...SECURITY_HEADERS,
-    "Content-Type": MIME[ext] || "application/octet-stream",
-    "Cache-Control": "no-cache",
-  });
+  if (!fs.existsSync(full)) return send(res, 404, { error: "Not Found" });
+  const stat = fs.statSync(full);
+  if (!stat.isFile()) return send(res, 404, { error: "Not Found" });
+
+  /* ETag Caching สำหรับ 304 Not Modified */
+  const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+  const clientEtag = req.headers["if-none-match"];
+  if (clientEtag && clientEtag === etag) {
+    res.writeHead(304, {
+      ...SECURITY_HEADERS,
+      "ETag": etag,
+      "Cache-Control": "public, max-age=3600, must-revalidate",
+    });
+    return res.end();
+  }
+
+  const COMPRESSIBLE = new Set([".html", ".css", ".js", ".json", ".svg"]);
+  const acceptEncoding = req.headers["accept-encoding"] || "";
+  const canGzip = COMPRESSIBLE.has(ext) && acceptEncoding.includes("gzip");
+
   const stream = fs.createReadStream(full);
-  stream.on("error", (e) => {
-    console.error("[STREAM]", e.message);
-    try { send(res, 500, { error: "File read error" }); } catch {}
-  });
-  stream.pipe(res);
+  if (canGzip) {
+    res.writeHead(200, {
+      ...SECURITY_HEADERS,
+      "Content-Type": MIME[ext] || "application/octet-stream",
+      "Content-Encoding": "gzip",
+      "Vary": "Accept-Encoding",
+      "ETag": etag,
+      "Cache-Control": "public, max-age=3600, must-revalidate",
+    });
+    const gz = zlib.createGzip({ level: 6 });
+    stream.on("error", (e) => {
+      console.error("[STREAM]", e.message);
+      try { res.destroy(); } catch {}
+    });
+    gz.on("error", (e) => {
+      console.error("[GZIP]", e.message);
+      try { res.destroy(); } catch {}
+    });
+    stream.pipe(gz).pipe(res);
+  } else {
+    res.writeHead(200, {
+      ...SECURITY_HEADERS,
+      "Content-Type": MIME[ext] || "application/octet-stream",
+      "ETag": etag,
+      "Cache-Control": "public, max-age=3600, must-revalidate",
+    });
+    stream.on("error", (e) => {
+      console.error("[STREAM]", e.message);
+      try { send(res, 500, { error: "File read error" }); } catch {}
+    });
+    stream.pipe(res);
+  }
 }
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -898,7 +940,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith("/api/")) return await handleApi(req, res, p);
     if (p.length > 1 && p.endsWith("/")) p = p.replace(/\/+$/, "") || "/"; // รองรับ /admin/
     let file = p === "/" ? "/index.html" : p === "/admin" ? "/admin.html" : p;
-    return sendFile(res, path.join(ROOT, file));
+    return sendFile(req, res, path.join(ROOT, file));
   } catch (e) {
     console.error("[ERROR]", e.message);
     try { send(res, 500, { error: "Internal Server Error" }); } catch {}

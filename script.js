@@ -74,6 +74,14 @@ let state = {
 const $ = (id) => document.getElementById(id);
 const esc = (t) => (t == null ? "" : String(t)).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+function debounce(fn, delay = 150) {
+  let timer = null;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
 function localToday() {
   const d = new Date();
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -591,6 +599,7 @@ function initLiveGpsMap() {
     zoom: 6,
     zoomControl: true,
     scrollWheelZoom: true,
+    preferCanvas: true,
   });
 
   // 1. Satellite Hybrid Layer (Esri World Imagery + Carto Voyager Labels)
@@ -684,10 +693,15 @@ function initLiveGpsMap() {
     }).bindTooltip(name, { permanent: false, direction: "top", className: "station-tooltip" }).addTo(liveMap);
   });
 
-  // Mouse coords update
+  // Mouse coords update (rAF throttled for 60fps smoothness and no DOM thrashing)
+  let mouseMoveRaf = null;
   liveMap.on("mousemove", (e) => {
-    const el = $("gpsLiveCoords");
-    if (el) el.textContent = `พิกัด: ${e.latlng.lat.toFixed(4)}° N, ${e.latlng.lng.toFixed(4)}° E`;
+    if (mouseMoveRaf) return;
+    mouseMoveRaf = requestAnimationFrame(() => {
+      mouseMoveRaf = null;
+      const el = $("gpsLiveCoords");
+      if (el) el.textContent = `พิกัด: ${e.latlng.lat.toFixed(4)}° N, ${e.latlng.lng.toFixed(4)}° E`;
+    });
   });
 
   updateLiveGpsMap();
@@ -742,8 +756,25 @@ function updateLiveGpsMap() {
       busMarkers.set(bus.id, marker);
     } else {
       marker.setLatLng([pos.lat, pos.lng]);
-      marker.setIcon(createBusIcon(bus, tele, pos.bearing));
-      marker.setPopupContent(createBusPopupContent(bus, tele));
+      const el = marker.getElement();
+      if (el) {
+        const svg = el.querySelector(".bus-marker-pin svg");
+        if (svg) svg.style.transform = `rotate(${pos.bearing}deg)`;
+        const pin = el.querySelector(".bus-marker-pin");
+        if (pin) {
+          const statusCls = tele.status === "enroute" ? "enroute" : tele.status === "scheduled" ? "scheduled" : "arrived";
+          pin.className = `bus-marker-pin ${statusCls}`;
+        }
+        const speedBadge = el.querySelector(".bus-speed-badge");
+        if (speedBadge && tele.status === "enroute") {
+          speedBadge.textContent = `${tele.speed}k`;
+        }
+      } else {
+        marker.setIcon(createBusIcon(bus, tele, pos.bearing));
+      }
+      if (marker.isPopupOpen()) {
+        marker.setPopupContent(createBusPopupContent(bus, tele));
+      }
       if (visible && !liveMap.hasLayer(marker)) {
         marker.addTo(liveMap);
       } else if (!visible && liveMap.hasLayer(marker)) {
@@ -773,6 +804,37 @@ function renderFleetDrawer() {
   });
 
   if ($("gfdCountText")) $("gfdCountText").textContent = `${filtered.length} คัน`;
+
+  // In-place reconciliation: if DOM items match current filtered list, update text/styles without clearing innerHTML
+  const existingItems = Array.from(listEl.children);
+  const isStructureSame = existingItems.length === filtered.length &&
+    filtered.every((b, idx) => existingItems[idx] && existingItems[idx].dataset.gfdId === b.id);
+
+  if (isStructureSame) {
+    filtered.forEach((b, idx) => {
+      const itemEl = existingItems[idx];
+      const tele = getBusLiveTelemetry(b);
+      const statusText = tele.status === "enroute" ? "กำลังวิ่ง" : tele.status === "scheduled" ? "รอออก" : "ถึงแล้ว";
+
+      itemEl.classList.toggle("active", focusedBusId === b.id);
+
+      const statusBadge = itemEl.querySelector(".gfd-status");
+      if (statusBadge) {
+        statusBadge.className = `gfd-status ${tele.status}`;
+        statusBadge.textContent = statusText;
+      }
+
+      const locEl = itemEl.querySelector(".gfd-meta-row span b");
+      if (locEl) locEl.textContent = tele.currentLoc;
+
+      const speedEl = itemEl.querySelector(".gfd-speed");
+      if (speedEl) speedEl.textContent = tele.status === "enroute" ? `${tele.speed} กม./ชม.` : `${b.depart} น.`;
+
+      const barEl = itemEl.querySelector(".gfd-progress-fill");
+      if (barEl) barEl.style.width = `${tele.progress}%`;
+    });
+    return;
+  }
 
   listEl.innerHTML = filtered.map((b) => {
     const tele = getBusLiveTelemetry(b);
@@ -1404,10 +1466,10 @@ document.querySelectorAll(".tf-tab-btn").forEach((btn) => {
 
 const trackerSearchInput = $("trackerSearchInput");
 if (trackerSearchInput) {
-  trackerSearchInput.addEventListener("input", (e) => {
+  trackerSearchInput.addEventListener("input", debounce((e) => {
     trackerSearchKeyword = e.target.value.trim();
     renderTrackerBoard();
-  });
+  }, 150));
 }
 
 // Auto-refresh live radar every 10 seconds
