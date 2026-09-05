@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>BusGo Database — ศูนย์จัดการและสำรวจฐานข้อมูลสด (Real-Time Database Explorer)</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="/theme-boot.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css?v=2.5.0" />
+  <style>
+    .db-shell { padding: 40px 0 80px; }
+    .db-header-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .db-live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #10b981;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+    }
+    .db-pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: busPulse 1.6s infinite;
+    }
+    .db-tabs-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .db-tab-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-soft);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .db-tab-pill:hover {
+      background: var(--surface-3);
+      color: var(--text);
+      border-color: var(--border-strong);
+    }
+    .db-tab-pill.active {
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-hover) 100%);
+      color: #ffffff;
+      border-color: transparent;
+      box-shadow: 0 4px 14px var(--gold-glow);
+    }
+    .db-counter-badge {
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: rgba(0, 0, 0, 0.18);
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+    .db-table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .db-grid-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-height: 460px;
+    }
+    .db-raw-json {
+      background: #0b0f19;
+      color: #38bdf8;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      max-height: 380px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER -->
+  <header class="header" id="topHeader">
+    <div class="container header-inner">
+      <a class="logo" href="/" aria-label="BusGo หน้าแรก">
+        <div class="logo-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="logo-svg">
+            <rect x="3" y="4" width="18" height="15" rx="3"></rect>
+            <path d="M3 10h18M7 19v2M17 19v2M7 15h.01M17 15h.01"></path>
+          </svg>
+        </div>
+        <div class="logo-text-group">
+          <span class="logo-title">Bus<span class="logo-accent">Go</span></span>
+          <span class="logo-tagline">REAL-TIME DATABASE</span>
+        </div>
+      </a>
+      <div style="display:flex; align-items:center; gap:12px">
+        <a class="btn btn-ghost btn-sm" href="/" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span>หน้าหลัก</span>
+        </a>
+        <a class="btn btn-ghost btn-sm" href="/admin" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 9h6M15 15h6"/></svg>
+          <span>ศูนย์ควบคุม Admin</span>
+        </a>
+        <button class="theme-toggle" id="themeToggle" type="button" title="สลับโหมดสว่าง/มืด" aria-label="สลับโหมดสว่าง/มืด">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN SHELL -->
+  <main class="container db-shell">
+    
+    <!-- HEADER CARD -->
+    <div class="db-header-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; margin-bottom:20px">
+        <div>
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px">
+            <span class="db-live-badge">
+              <span class="db-pulse-dot"></span>
+              REAL-TIME DATABASE: CONNECTED
+            </span>
+            <span class="muted small mono" id="dbSyncTime">ซิงค์อัตโนมัติทุก 2 วินาที</span>
+          </div>
+          <h1 class="page-title" style="font-size:28px; margin:0 0 6px">ศูนย์สำรวจฐานข้อมูลสด (Live Database Inspector)</h1>
+          <p class="muted" style="margin:0">เข้าถึงข้อมูลแบบ Real-Time จากฐานข้อมูลสดของระบบ BusGo ตรวจสอบสคีมา ตาราง เรคคอร์ด และสคริปต์ SQL ได้ทันทีโดยไม่ต้องผ่านหน้าล็อกอิน</p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+          <a href="/busgo_database.sql" download="busgo_database.sql" class="btn btn--brass" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            ดาวน์โหลดไฟล์ SQL (.sql)
+          </a>
+          <a href="https://github.com/iceeV1/busgo/blob/main/busgo_database.sql" target="_blank" rel="noopener" class="btn btn--ghost" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            ดู SQL บน GitHub
+          </a>
+        </div>
+      </div>
+
+      <!-- STAT CARDS -->
+      <div class="stat-cards" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin:0">
+        <div class="stat-card">
+          <div class="stat-label">สถานะการเชื่อมต่อฐานข้อมูล</div>
+          <div class="stat-value" style="color:#10b981; font-size:22px">● เชื่อมต่อสด (Live)</div>
+          <div class="stat-sub" id="dbEngineSub">Dual-Layer RTDB &amp; SQL RDBMS</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">ตารางข้อมูลทั้งหมด</div>
+          <div class="stat-value" style="color:var(--primary); font-size:22px" id="statTotalTables">4 ตาราง</div>
+          <div class="stat-sub">buses, bookings, users, promos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">เรคคอร์ดทั้งหมดในระบบ</div>
+          <div class="stat-value" style="color:var(--gold); font-size:22px" id="statTotalRecords">-- รายการ</div>
+          <div class="stat-sub">อัปเดตสดแบบ Real-Time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">การเข้ารหัสฐานข้อมูล</div>
+          <div class="stat-value" style="font-size:22px">UTF-8 mb4</div>
+          <div class="stat-sub">utf8mb4_unicode_ci ภาษาไทย 100%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE SWITCHER TABS -->
+    <div class="db-tabs-bar">
+      <button type="button" class="db-tab-pill active" data-table="buses">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="3"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/></svg>
+        <span>ตาราง buses (รอบรถ)</span>
+        <span class="db-counter-badge" id="badgeBuses">0</span>
+      </button>
+      <button type="button" class="db-tab-pill" data-table="bookings">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h8M8 10h8M8 14h5M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>
+        <span>ตาราง bookings (การจองสด)</span>
+        <span class="db-counter-badge" id="badgeBookings">0</span>
+      </button>
+      <button type="button" class="db-tab-pill" data-table="users">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>ตาราง users (สมาชิก)</span>
+        <span class="db-counter-badge" id="badgeUsers">0</span>
+      </button>
+      <button type="button" class="db-tab-pill" data-table="promos">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-8-8"/><path d="M9 9l6 6"/><path d="M9 15V9h6"/></svg>
+        <span>ตาราง promos (ส่วนลด)</span>
+        <span class="db-counter-badge" id="badgePromos">0</span>
+      </button>
+    </div>
+
+    <!-- TABLE EXPLORER CARD -->
+    <div class="db-table-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px">
+        <div>
+          <h2 style="font-size:20px; margin:0 0 4px" id="dbActiveTitle">ตาราง: buses</h2>
+          <div class="muted small" id="dbActiveDesc">จัดเก็บข้อมูลรอบรถบัส สถานีต้นทาง ปลายทาง เวลาออกเดินทาง และราคา</div>
+        </div>
+        <div class="mono small highlight-cyan" id="dbTableMetaInfo">--</div>
+      </div>
+
+      <!-- SCHEMA DDL TABLE -->
+      <div style="margin-bottom:28px">
+        <div class="eyebrow" style="margin-bottom:10px">โครงสร้างสคีมา (Table Schema DDL)</div>
+        <div style="overflow-x:auto">
+          <table class="table" style="width:100%; font-size:13px">
+            <thead>
+              <tr>
+                <th>Column Name</th>
+                <th>Data Type</th>
+                <th>Key / Constraints</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="dbSchemaBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LIVE DATA GRID -->
+      <div style="margin-bottom:28px">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+          <div class="eyebrow">ข้อมูลจริงในตารางแบบเรียลไทม์ (Live Records Grid)</div>
+          <div class="small muted mono" id="dbGridCount">กำลังโหลดข้อมูล...</div>
+        </div>
+        <div class="db-grid-wrap">
+          <table class="table" style="width:100%; font-size:13px; margin:0">
+            <thead id="dbDataHead" style="position:sticky; top:0; background:var(--surface); z-index:2"></thead>
+            <tbody id="dbDataBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LIVE JSON STREAM -->
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+          <div class="eyebrow">สตรีมข้อมูล JSON สดจาก REST API (Live API Stream)</div>
+          <a href="/api/database/overview" target="_blank" class="small mono highlight-cyan" style="text-decoration:none">
+            เปิด API Endpoint: /api/database/overview →
+          </a>
+        </div>
+        <div class="db-raw-json" id="dbRawJson">กำลังดึงข้อมูล...</div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer" style="margin-top:60px">
+    <div class="container footer-bottom" style="display:flex; justify-content:space-between; align-items:center">
+      <span>© 2026 BusGo Smart Transit Systems — Real-Time Database Architecture.</span>
+      <span class="mono small highlight-gold">Dual-Layer Database Engine (JSON + SQL)</span>
+    </div>
+  </footer>
+
+  <script>
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+    const esc = (t) => (t == null ? "" : String(t)).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    const DB_SCHEMAS = {
+      buses: {
+        title: "ตาราง: buses (ข้อมูลรอบรถ)",
+        desc: "จัดเก็บข้อมูลเที่ยวรถ สถานีต้นทาง ปลายทาง เวลาออกเดินทาง ประเภทรถ และราคาค่าโดยสาร",
+        cols: [
+          { col: "id", type: "VARCHAR(20)", key: "PRIMARY KEY", desc: "รหัสเที่ยวรถ (e.g. B01, B02)" },
+          { col: "fromCity", type: "VARCHAR(80)", key: "NOT NULL", desc: "สถานีต้นทาง (e.g. กรุงเทพฯ)" },
+          { col: "toCity", type: "VARCHAR(80)", key: "NOT NULL", desc: "สถานีปลายทาง (e.g. เชียงใหม่)" },
+          { col: "depart", type: "TIME", key: "NOT NULL", desc: "เวลาออกเดินทาง (HH:MM)" },
+          { col: "arrive", type: "TIME", key: "NOT NULL", desc: "เวลาถึงปลายทาง (HH:MM)" },
+          { col: "duration", type: "VARCHAR(30)", key: "NULLABLE", desc: "ระยะเวลาเดินทางโดยประมาณ" },
+          { col: "type", type: "VARCHAR(10)", key: "NOT NULL", desc: "ประเภทรถ (vip / air / eco)" },
+          { col: "seats", type: "INT", key: "NOT NULL", desc: "จำนวนที่นั่งทั้งหมด (32 / 44 / 48)" },
+          { col: "price", type: "DECIMAL(10,2)", key: "NOT NULL", desc: "ราคาค่าโดยสารต่อที่นั่ง (บาท)" },
+        ]
+      },
+      bookings: {
+        title: "ตาราง: bookings (การจองตั๋วสด)",
+        desc: "จัดเก็บประวัติการจองตั๋ว รหัสตั๋วโดยสาร เที่ยวรถ ผู้โดยสาร หมายเลขที่นั่ง และสถานะการชำระเงิน",
+        cols: [
+          { col: "code", type: "VARCHAR(20)", key: "PRIMARY KEY (UNIQUE)", desc: "รหัสตั๋วโดยสาร (e.g. BG-2205FB)" },
+          { col: "busId", type: "VARCHAR(20)", key: "FOREIGN KEY -> buses(id)", desc: "รหัสเที่ยวรถที่จอง" },
+          { col: "name", type: "VARCHAR(120)", key: "NOT NULL", desc: "ชื่อผู้โดยสาร (Masked เพื่อความเป็นส่วนตัว)" },
+          { col: "seats", type: "VARCHAR(120)", key: "NOT NULL", desc: "หมายเลขที่นั่งที่เลือก (e.g. 1/2)" },
+          { col: "total", type: "DECIMAL(10,2)", key: "NOT NULL", desc: "ยอดเงินรวมทั้งสิ้น (บาท)" },
+          { col: "status", type: "VARCHAR(15)", key: "DEFAULT 'active'", desc: "สถานะตั๋ว (active, checked_in, cancelled)" },
+          { col: "date", type: "DATE", key: "NOT NULL", desc: "วันที่เดินทาง" },
+          { col: "createdAt", type: "DATETIME", key: "NOT NULL", desc: "วันเวลาที่ทำการจอง" },
+        ]
+      },
+      users: {
+        title: "ตาราง: users (ข้อมูลสมาชิก)",
+        desc: "จัดเก็บข้อมูลผู้ใช้งานระบบ Smart Transit Pass พร้อมการเข้ารหัสความปลอดภัย",
+        cols: [
+          { col: "id", type: "VARCHAR(20)", key: "PRIMARY KEY", desc: "รหัสสมาชิก (e.g. U5FE25A45)" },
+          { col: "name", type: "VARCHAR(120)", key: "NOT NULL", desc: "ชื่อสมาชิก" },
+          { col: "phone", type: "VARCHAR(15)", key: "NULLABLE", desc: "เบอร์โทรศัพท์สมาชิก" },
+          { col: "createdAt", type: "DATETIME", key: "NOT NULL", desc: "วันเวลาที่สมัครสมาชิก" },
+        ]
+      },
+      promos: {
+        title: "ตาราง: promos (โค้ดส่วนลด)",
+        desc: "จัดเก็บโค้ดส่วนลดโปรโมชั่น มูลค่าส่วนลด และสถิติจำนวนครั้งที่ใช้งาน",
+        cols: [
+          { col: "code", type: "VARCHAR(30)", key: "PRIMARY KEY", desc: "โค้ดส่วนลด (e.g. WELCOME10)" },
+          { col: "type", type: "VARCHAR(10)", key: "NOT NULL", desc: "ประเภทส่วนลด (percent / fixed)" },
+          { col: "value", type: "DECIMAL(10,2)", key: "NOT NULL", desc: "มูลค่าส่วนลด (% หรือ บาท)" },
+          { col: "active", type: "TINYINT(1)", key: "DEFAULT 1", desc: "สถานะการเปิดใช้งาน (1=เปิด, 0=ปิด)" },
+        ]
+      }
+    };
+
+    let activeTable = "buses";
+    let lastData = null;
+
+    function renderSchema(table) {
+      const def = DB_SCHEMAS[table];
+      if (!def) return;
+      $("dbActiveTitle").textContent = def.title;
+      $("dbActiveDesc").textContent = def.desc;
+
+      const tbody = $("dbSchemaBody");
+      tbody.innerHTML = def.cols.map((c) => `
+        <tr>
+          <td><strong class="mono highlight-cyan">${esc(c.col)}</strong></td>
+          <td><span class="mono">${esc(c.type)}</span></td>
+          <td><span class="badge" style="font-size:11px">${esc(c.key)}</span></td>
+          <td>${esc(c.desc)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderGrid(table, records) {
+      const thead = $("dbDataHead");
+      const tbody = $("dbDataBody");
+      $("dbGridCount").textContent = `${records.length} เรคคอร์ดในตาราง`;
+
+      if (records.length === 0) {
+        thead.innerHTML = `<tr><th>ข้อมูลในตาราง</th></tr>`;
+        tbody.innerHTML = `<tr><td class="muted text-center" style="padding:32px">ยังไม่มีข้อมูลในตารางนี้</td></tr>`;
+        return;
+      }
+
+      const cols = Object.keys(records[0]);
+      thead.innerHTML = `<tr>${cols.map((c) => `<th class="mono" style="font-size:12px">${esc(c)}</th>`).join("")}</tr>`;
+      tbody.innerHTML = records.map((row) => `
+        <tr>
+          ${cols.map((c) => {
+            let val = row[c];
+            if (typeof val === "object" && val !== null) val = JSON.stringify(val);
+            return `<td class="mono small">${esc(val != null ? String(val) : "NULL")}</td>`;
+          }).join("")}
+        </tr>
+      `).join("");
+    }
+
+    async function fetchRealtimeDatabase() {
+      try {
+        const res = await fetch("/api/database/overview");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        lastData = data;
+
+        // Update counts
+        const c = data.counts || {};
+        $("badgeBuses").textContent = c.buses || 0;
+        $("badgeBookings").textContent = c.bookings || 0;
+        $("badgeUsers").textContent = c.users || 0;
+        $("badgePromos").textContent = c.promos || 0;
+
+        const totalRecs = (c.buses || 0) + (c.bookings || 0) + (c.users || 0) + (c.promos || 0);
+        $("statTotalRecords").textContent = `${totalRecs} รายการ`;
+        if (data.storageMode) $("dbEngineSub").textContent = data.storageMode;
+
+        // Render Active Table Grid
+        const curList = (data.tables && data.tables[activeTable]) || [];
+        renderGrid(activeTable, curList);
+
+        // Render JSON Stream
+        $("dbRawJson").textContent = JSON.stringify(data, null, 2);
+
+        // Sync timestamp
+        const now = new Date();
+        $("dbSyncTime").textContent = `ซิงค์สดล่าสุด: ${now.toLocaleTimeString("th-TH")} น. (Real-Time Auto Sync)`;
+      } catch (e) {
+        $("dbSyncTime").textContent = `เกิดข้อผิดพลาดในการเชื่อมต่อ: ${e.message}`;
+      }
+    }
+
+    // Tab buttons
+    document.querySelectorAll(".db-tab-pill").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".db-tab-pill").forEach((b) => b.classList.toggle("active", b === btn));
+        activeTable = btn.dataset.table;
+        renderSchema(activeTable);
+        if (lastData && lastData.tables) {
+          renderGrid(activeTable, lastData.tables[activeTable] || []);
+        }
+      });
+    });
+
+    // Theme Toggle
+    const themeBtn = $("themeToggle");
+    if (themeBtn) {
+      themeBtn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme") || "dark";
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("busgo_theme", next);
+      });
+    }
+
+    // Init
+    renderSchema("buses");
+    fetchRealtimeDatabase();
+    setInterval(fetchRealtimeDatabase, 2000);
+  </script>
+</body>
+</html>

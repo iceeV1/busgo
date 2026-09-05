@@ -526,6 +526,44 @@ async function handleApi(req, res, p) {
   req._db = db; // [v1.2.0] ให้ isAdmin/getSessionUser เข้าถึง sessions ของ request นี้
   const m = req.method;
 
+  /* ---------- DATABASE PUBLIC REAL-TIME OVERVIEW ---------- */
+  if (p === "/api/database/overview" && m === "GET") {
+    const publicBookings = (db.bookings || []).map((b) => ({
+      code: b.code,
+      busId: b.busId,
+      name: b.name ? b.name.slice(0, 1) + "***" : "ผู้โดยสาร",
+      seats: Array.isArray(b.seats) ? b.seats.join(", ") : String(b.seats || ""),
+      total: b.total,
+      status: b.status,
+      date: b.date,
+      createdAt: b.createdAt,
+    }));
+    const publicUsers = (db.users || []).map((u) => ({
+      id: u.id,
+      name: u.name,
+      phone: u.phone ? u.phone.slice(0, 3) + "****" + u.phone.slice(-3) : "—",
+      createdAt: u.createdAt,
+    }));
+    return send(res, 200, {
+      status: "online",
+      serverTime: new Date().toISOString(),
+      storageMode: fbEnabled() ? "Firebase Realtime Database (RTDB) + Local Sync" : "Hybrid JSON Document Store & SQL RDBMS",
+      firebaseConnected: fbEnabled(),
+      tables: {
+        buses: db.buses || [],
+        bookings: publicBookings,
+        users: publicUsers,
+        promos: db.promos || [],
+      },
+      counts: {
+        buses: (db.buses || []).length,
+        bookings: (db.bookings || []).length,
+        users: (db.users || []).length,
+        promos: (db.promos || []).length,
+      },
+    });
+  }
+
   /* ---------- BUSES ---------- */
   if (p === "/api/buses" && m === "GET") return send(res, 200, db.buses);
 
@@ -939,8 +977,8 @@ const server = http.createServer(async (req, res) => {
       return await withDbLock(() => handleApi(req, res, p));
     }
     if (p.startsWith("/api/")) return await handleApi(req, res, p);
-    if (p.length > 1 && p.endsWith("/")) p = p.replace(/\/+$/, "") || "/"; // รองรับ /admin/
-    let file = p === "/" ? "/index.html" : p === "/admin" ? "/admin.html" : p;
+    if (p.length > 1 && p.endsWith("/")) p = p.replace(/\/+$/, "") || "/"; // รองรับ /admin/ /database/
+    let file = p === "/" ? "/index.html" : p === "/admin" ? "/admin.html" : p === "/database" ? "/database.html" : p;
     return sendFile(req, res, path.join(ROOT, file));
   } catch (e) {
     console.error("[ERROR]", e.message);
