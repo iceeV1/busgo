@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Kanit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/leaflet.css" />
-  <link rel="stylesheet" href="/style.css?v=2.0.4" />
+  <link rel="stylesheet" href="/style.css?v=2.1.0" />
 </head>
 <body>
 
@@ -261,6 +261,10 @@
           <button type="button" class="gps-filter-btn" data-gps-filter="scheduled">รอออกเดินทาง (<span id="gpsCountScheduled">0</span>)</button>
         </div>
         <div class="gps-quick-tools">
+          <button type="button" class="btn btn-3d-toggle active" id="gps3dToggleBtn" title="สลับโหมด 3D โฮโลกราฟิก / 2D แบนราบ">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <span id="gps3dBtnText">โหมด 3D โฮโลกราฟิก</span>
+          </button>
           <span class="gps-coords-display" id="gpsLiveCoords">พิกัด: 13.7563° N, 100.5018° E</span>
           <button type="button" class="btn btn-ghost btn-sm" id="gpsFitBoundsBtn" title="ซูมให้เห็นรถทุกคัน">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 9v12h-6M3 15V3h6"/></svg>
@@ -275,8 +279,41 @@
 
       <!-- MAP + LIVE FLEET DRAWER -->
       <div class="gps-map-layout" id="gpsMapLayout">
-        <div class="gps-map-container" id="liveGpsMap">
-          <!-- Leaflet renders here -->
+        <div class="gps-3d-stage is-3d" id="gps3dStage">
+          <!-- ATMOSPHERIC HORIZON & RADAR SCAN OVERLAYS -->
+          <div class="gps-horizon-glow"></div>
+          <div class="gps-scan-grid"></div>
+
+          <!-- 3D FLOATING HUD CONTROLS -->
+          <div class="gps-3d-hud" id="gps3dHud">
+            <div class="g3h-presets">
+              <button type="button" class="g3h-btn active" data-cam="iso" title="มุมมอง 3D ไอโซเมตริก">3D ไอโซเมตริก</button>
+              <button type="button" class="g3h-btn" data-cam="cinematic" title="มุมมอง 3D ซีเนมาติก ผาดโผน">3D ซีเนมาติก</button>
+              <button type="button" class="g3h-btn" data-cam="top" title="มุมมอง 2D หน้าตรง">2D หน้าตรง</button>
+            </div>
+            <div class="g3h-adjusters">
+              <div class="g3h-control-group">
+                <span class="g3h-label">ความเอียง: <b id="lblPitch">50°</b></span>
+                <input type="range" id="sliderPitch" min="0" max="65" value="50" step="1" class="g3h-slider">
+              </div>
+              <div class="g3h-control-group">
+                <span class="g3h-label">หมุนทิศ: <b id="lblBearing">-8°</b></span>
+                <input type="range" id="sliderBearing" min="-45" max="45" value="-8" step="1" class="g3h-slider">
+              </div>
+              <button type="button" class="g3h-orbit-btn" id="btnAutoOrbit" title="หมุนกล้องรอบตัวอัตโนมัติ">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9"/><path d="M21 12l-3-3m3 3l-3 3"/></svg>
+                <span id="lblAutoOrbit">หมุนอัตโนมัติ</span>
+              </button>
+            </div>
+            <div class="g3h-gyro">
+              <span class="g3h-gyro-tag">3D GYRO</span>
+              <span id="g3hGyroVal">P:50° · B:-8°</span>
+            </div>
+          </div>
+
+          <div class="gps-map-container" id="liveGpsMap">
+            <!-- Leaflet renders here -->
+          </div>
         </div>
 
         <!-- FLEET QUICK SELECT DRAWER -->
@@ -922,6 +959,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="/leaflet.js"></script>
-  <script src="/script.js?v=2.0.4"></script>
+  <script src="/script.js?v=2.1.0"></script>
 </body>
 </html>

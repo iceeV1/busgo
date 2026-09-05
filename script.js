@@ -311,27 +311,138 @@ let focusedBusId = null;
 let darkTileLayer = null;
 let lightTileLayer = null;
 
+// 3D Perspective Camera State
+let is3dMode = true;
+let gpsPitch = 50;
+let gpsBearing = -8;
+let gpsScale = 1.22;
+let isAutoOrbiting = false;
+let autoOrbitInterval = null;
+let autoOrbitDirection = 1;
+
+function apply3dCamera() {
+  document.documentElement.style.setProperty("--gps-pitch", `${gpsPitch}deg`);
+  document.documentElement.style.setProperty("--gps-bearing", `${gpsBearing}deg`);
+  document.documentElement.style.setProperty("--gps-scale", `${gpsScale}`);
+
+  const pEl = $("lblPitch");
+  if (pEl) pEl.textContent = `${gpsPitch}°`;
+  const bEl = $("lblBearing");
+  if (bEl) bEl.textContent = `${gpsBearing}°`;
+  const gyroEl = $("g3hGyroVal");
+  if (gyroEl) gyroEl.textContent = `P:${gpsPitch}° · B:${gpsBearing}°`;
+
+  const sPitch = $("sliderPitch");
+  if (sPitch && Number(sPitch.value) !== gpsPitch) sPitch.value = gpsPitch;
+  const sBearing = $("sliderBearing");
+  if (sBearing && Number(sBearing.value) !== gpsBearing) sBearing.value = gpsBearing;
+}
+
+function set3dMode(enable) {
+  is3dMode = enable;
+  const stage = $("gps3dStage");
+  const btn = $("gps3dToggleBtn");
+  const txt = $("gps3dBtnText");
+
+  if (stage) stage.classList.toggle("is-3d", enable);
+  if (btn) btn.classList.toggle("active", enable);
+  if (txt) txt.textContent = enable ? "โหมด 3D โฮโลกราฟิก" : "โหมด 2D แผนที่";
+
+  if (!enable && isAutoOrbiting) {
+    toggleAutoOrbit(false);
+  }
+
+  if (liveMap) {
+    setTimeout(() => {
+      liveMap.invalidateSize();
+    }, 350);
+  }
+}
+
+function setCameraPreset(type) {
+  document.querySelectorAll(".g3h-btn").forEach((b) => b.classList.toggle("active", b.dataset.cam === type));
+  if (type === "iso") {
+    set3dMode(true);
+    gpsPitch = 50;
+    gpsBearing = -8;
+    gpsScale = 1.22;
+  } else if (type === "cinematic") {
+    set3dMode(true);
+    gpsPitch = 60;
+    gpsBearing = 16;
+    gpsScale = 1.30;
+  } else if (type === "top") {
+    gpsPitch = 0;
+    gpsBearing = 0;
+    gpsScale = 1.0;
+    set3dMode(false);
+  }
+  apply3dCamera();
+}
+
+function toggleAutoOrbit(forceState) {
+  const next = typeof forceState === "boolean" ? forceState : !isAutoOrbiting;
+  isAutoOrbiting = next;
+  const btn = $("btnAutoOrbit");
+  const lbl = $("lblAutoOrbit");
+  if (btn) btn.classList.toggle("active", isAutoOrbiting);
+  if (lbl) lbl.textContent = isAutoOrbiting ? "หยุดหมุน" : "หมุนอัตโนมัติ";
+
+  if (autoOrbitInterval) {
+    clearInterval(autoOrbitInterval);
+    autoOrbitInterval = null;
+  }
+
+  if (isAutoOrbiting) {
+    if (!is3dMode) set3dMode(true);
+    autoOrbitInterval = setInterval(() => {
+      gpsBearing += 0.35 * autoOrbitDirection;
+      if (gpsBearing >= 22) {
+        gpsBearing = 22;
+        autoOrbitDirection = -1;
+      } else if (gpsBearing <= -22) {
+        gpsBearing = -22;
+        autoOrbitDirection = 1;
+      }
+      gpsBearing = Math.round(gpsBearing * 10) / 10;
+      apply3dCamera();
+    }, 45);
+  }
+}
+
 function createBusIcon(bus, tele, bearing) {
   const isEnroute = tele.status === "enroute";
   const statusCls = isEnroute ? "enroute" : tele.status === "scheduled" ? "scheduled" : "arrived";
-  const pulseHtml = isEnroute ? `<div class="bus-marker-pulse"></div>` : tele.status === "scheduled" ? `<div class="bus-marker-pulse scheduled"></div>` : "";
-  
+  const pulseHtml = `<div class="bus-marker-pulse ${statusCls}"></div>`;
+  const groundDisc = `<div class="bus-ground-disc ${statusCls}"></div>`;
+  const headlight = isEnroute ? `<div class="bus-headlight-cone" style="transform: translate(-50%, -50%) rotate(${bearing}deg)"></div>` : "";
+  const holoPillar = `<div class="bus-holo-pillar ${statusCls}"></div>`;
+  const speedBadge = isEnroute ? `<span class="badge-speed">${tele.speed} กม./ชม.</span>` : "";
+
   return L.divIcon({
     className: "bus-div-icon",
     html: `
       <div class="bus-marker-wrap" data-bus-marker="${esc(bus.id)}">
+        ${groundDisc}
+        ${headlight}
         ${pulseHtml}
-        <div class="bus-marker-pin ${statusCls}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(${bearing}deg)">
-            <path d="M12 2L19 21L12 17L5 21L12 2Z"/>
-          </svg>
+        ${holoPillar}
+        <div class="bus-3d-avatar">
+          <div class="bus-3d-badge ${statusCls}">
+            <span>${esc(bus.id)}</span>
+            ${speedBadge}
+          </div>
+          <div class="bus-marker-pin ${statusCls}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(${bearing}deg)">
+              <path d="M12 2L19 21L12 17L5 21L12 2Z"/>
+            </svg>
+          </div>
         </div>
-        <div class="bus-marker-label">${esc(bus.id)}</div>
       </div>
     `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -20],
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -28],
   });
 }
 
@@ -417,18 +528,27 @@ function initLiveGpsMap() {
     }).addTo(liveMap);
   });
 
-  // Station Terminal Markers
+  // Station Terminal Markers (3D Holographic Waypoint Beacons)
   const uniqueStations = new Set();
   Object.values(ROUTE_STATIONS).forEach((stList) => stList.forEach((s) => uniqueStations.add(s)));
   uniqueStations.forEach((name) => {
     const coord = getStationCoord(name);
-    L.circleMarker(coord, {
-      radius: 4,
-      color: "#ffd700",
-      fillColor: "#0b0f19",
-      fillOpacity: 0.9,
-      weight: 1.5,
-    }).bindTooltip(name, { permanent: false, direction: "top", className: "station-tooltip" }).addTo(liveMap);
+    const stationIcon = L.divIcon({
+      className: "station-div-icon",
+      html: `
+        <div class="station-beacon-wrap" title="${esc(name)}">
+          <div class="station-base-pulse"></div>
+          <div class="station-beacon-core"></div>
+          <div class="station-beacon-pillar"></div>
+          <div class="station-beacon-name">${esc(name)}</div>
+        </div>
+      `,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+    L.marker(coord, { icon: stationIcon })
+      .bindTooltip(name, { permanent: false, direction: "top", className: "station-tooltip" })
+      .addTo(liveMap);
   });
 
   // Mouse coords update
@@ -437,6 +557,8 @@ function initLiveGpsMap() {
     if (el) el.textContent = `พิกัด: ${e.latlng.lat.toFixed(4)}° N, ${e.latlng.lng.toFixed(4)}° E`;
   });
 
+  apply3dCamera();
+  set3dMode(true);
   updateLiveGpsMap();
   setupGpsControls();
 }
@@ -605,9 +727,9 @@ function setupGpsControls() {
     });
   }
 
-  const toggleBtn = $("gpsToggleDrawerBtn");
-  if (toggleBtn) {
-    toggleBtn.addEventListener("click", () => {
+  const toggleDrawerBtn = $("gpsToggleDrawerBtn");
+  if (toggleDrawerBtn) {
+    toggleDrawerBtn.addEventListener("click", () => {
       const layout = $("gpsMapLayout");
       if (layout) {
         layout.classList.toggle("drawer-collapsed");
@@ -615,6 +737,45 @@ function setupGpsControls() {
         $("gpsDrawerBtnText").textContent = collapsed ? "เปิดรายการรถ" : "ซ่อนรายการรถ";
         setTimeout(() => liveMap && liveMap.invalidateSize(), 250);
       }
+    });
+  }
+
+  // 3D Mode Toggle
+  const toggle3dBtn = $("gps3dToggleBtn");
+  if (toggle3dBtn) {
+    toggle3dBtn.addEventListener("click", () => {
+      set3dMode(!is3dMode);
+    });
+  }
+
+  // 3D Camera Presets
+  document.querySelectorAll(".g3h-btn[data-cam]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setCameraPreset(btn.dataset.cam);
+    });
+  });
+
+  // 3D Interactive Sliders
+  const sPitch = $("sliderPitch");
+  if (sPitch) {
+    sPitch.addEventListener("input", () => {
+      gpsPitch = Number(sPitch.value);
+      apply3dCamera();
+    });
+  }
+  const sBearing = $("sliderBearing");
+  if (sBearing) {
+    sBearing.addEventListener("input", () => {
+      gpsBearing = Number(sBearing.value);
+      apply3dCamera();
+    });
+  }
+
+  // Auto-Orbit Cinematic Sweep
+  const orbitBtn = $("btnAutoOrbit");
+  if (orbitBtn) {
+    orbitBtn.addEventListener("click", () => {
+      toggleAutoOrbit();
     });
   }
 }
