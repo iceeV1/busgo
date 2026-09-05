@@ -1241,6 +1241,8 @@ body {
   --gps-pitch: 50deg;
   --gps-bearing: -8deg;
   --gps-scale: 1.22;
+  --gps-mouse-rx: 0deg;
+  --gps-mouse-ry: 0deg;
 }
 
 .gps-map-layout {
@@ -1285,6 +1287,27 @@ body {
   transition: opacity 0.6s ease;
 }
 .gps-3d-stage.is-3d .gps-horizon-glow {
+  opacity: 1;
+}
+
+/* Tilt-Shift Horizon Depth Fog & Blur */
+.gps-tiltshift-fog {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 110px;
+  background: linear-gradient(180deg, rgba(6, 11, 22, 0.8) 0%, rgba(6, 182, 212, 0.15) 60%, transparent 100%);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  mask-image: linear-gradient(to bottom, black 0%, black 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 40%, transparent 100%);
+  pointer-events: none;
+  z-index: 7;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.gps-3d-stage.is-3d .gps-tiltshift-fog {
   opacity: 1;
 }
 
@@ -1444,6 +1467,18 @@ body {
   letter-spacing: 0.5px;
 }
 
+/* Propagate TRUE 3D space across all Leaflet internal pane layers */
+.gps-3d-stage.is-3d #liveGpsMap,
+.gps-3d-stage.is-3d .leaflet-pane,
+.gps-3d-stage.is-3d .leaflet-map-pane,
+.gps-3d-stage.is-3d .leaflet-marker-pane,
+.gps-3d-stage.is-3d .leaflet-zoom-animated,
+.gps-3d-stage.is-3d .leaflet-marker-icon,
+.gps-3d-stage.is-3d .bus-div-icon,
+.gps-3d-stage.is-3d .station-div-icon {
+  transform-style: preserve-3d !important;
+}
+
 /* Map Container with 3D Rotation */
 .gps-map-container {
   width: 100%;
@@ -1451,13 +1486,15 @@ body {
   z-index: 1;
   background: #0b0f19;
   transform-style: preserve-3d;
-  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 .gps-3d-stage.is-3d .gps-map-container {
-  transform: rotateX(var(--gps-pitch)) rotateZ(var(--gps-bearing)) scale(var(--gps-scale));
+  transform: rotateX(calc(var(--gps-pitch) + var(--gps-mouse-rx, 0deg))) 
+             rotateZ(calc(var(--gps-bearing) + var(--gps-mouse-ry, 0deg))) 
+             scale(var(--gps-scale));
   transform-origin: 50% 65%;
-  box-shadow: 0 45px 90px rgba(0, 0, 0, 0.95), inset 0 0 140px rgba(6, 182, 212, 0.12);
+  box-shadow: 0 45px 90px rgba(0, 0, 0, 0.95), inset 0 0 140px rgba(6, 182, 212, 0.15);
 }
 
 .gps-fleet-drawer {
@@ -1601,8 +1638,8 @@ body {
 /* 3D HOLOGRAPHIC BUS MARKER ASSEMBLY */
 .bus-marker-wrap {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1610,47 +1647,66 @@ body {
   cursor: pointer;
 }
 
-/* Rotating Ground Plane Radar Disc */
+/* Road Surface Shadow (Z = 0) */
+.bus-road-shadow {
+  position: absolute;
+  width: 46px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.82);
+  filter: blur(5px);
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: all 0.3s ease;
+  display: none;
+}
+.gps-3d-stage.is-3d .bus-road-shadow {
+  display: block;
+}
+
+/* Rotating Ground Target Disc */
 .bus-ground-disc {
   position: absolute;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  border: 1px dashed rgba(6, 182, 212, 0.7);
-  background: radial-gradient(circle, rgba(6, 182, 212, 0.24) 0%, rgba(6, 182, 212, 0.04) 60%, transparent 80%);
+  border: 1.5px dashed rgba(6, 182, 212, 0.75);
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.28) 0%, rgba(6, 182, 212, 0.05) 55%, transparent 75%);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
   animation: radarDiscSpin 8s linear infinite;
-  box-shadow: 0 0 14px rgba(6, 182, 212, 0.4);
+  box-shadow: 0 0 16px rgba(6, 182, 212, 0.45);
   display: none;
 }
 .gps-3d-stage.is-3d .bus-ground-disc {
   display: block;
 }
 .bus-ground-disc.scheduled {
-  border-color: rgba(245, 158, 11, 0.7);
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.22) 0%, rgba(245, 158, 11, 0.04) 60%, transparent 80%);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+  border-color: rgba(245, 158, 11, 0.75);
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.22) 0%, rgba(245, 158, 11, 0.04) 55%, transparent 75%);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.4);
 }
 
 /* Forward Headlight Light Projection */
-.bus-headlight-cone {
+.bus-dual-headlights {
   position: absolute;
   top: 50%;
   left: 50%;
   width: 0;
   height: 0;
-  border-left: 14px solid transparent;
-  border-right: 14px solid transparent;
-  border-top: 48px solid rgba(254, 240, 138, 0.2);
-  filter: blur(2px);
+  border-left: 18px solid transparent;
+  border-right: 18px solid transparent;
+  border-top: 65px solid rgba(254, 240, 138, 0.24);
+  filter: blur(3px);
   transform-origin: 50% 0%;
   pointer-events: none;
   display: none;
 }
-.gps-3d-stage.is-3d .bus-headlight-cone {
+.gps-3d-stage.is-3d .bus-dual-headlights {
   display: block;
 }
 
@@ -1659,11 +1715,11 @@ body {
   position: absolute;
   bottom: 50%;
   left: 50%;
-  width: 2px;
-  height: 28px;
+  width: 2.5px;
+  height: 32px;
   transform: translateX(-50%);
-  background: linear-gradient(180deg, rgba(6, 182, 212, 0.95) 0%, rgba(6, 182, 212, 0.1) 100%);
-  box-shadow: 0 0 8px rgba(6, 182, 212, 0.9);
+  background: linear-gradient(180deg, rgba(6, 182, 212, 1) 0%, rgba(6, 182, 212, 0.15) 100%);
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.95);
   pointer-events: none;
   display: none;
 }
@@ -1671,11 +1727,11 @@ body {
   display: block;
 }
 .bus-holo-pillar.scheduled {
-  background: linear-gradient(180deg, rgba(245, 158, 11, 0.95) 0%, rgba(245, 158, 11, 0.1) 100%);
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.9);
+  background: linear-gradient(180deg, rgba(245, 158, 11, 1) 0%, rgba(245, 158, 11, 0.15) 100%);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.95);
 }
 
-/* 2D Flat Mode Pulse Ring */
+/* 2D Flat Mode Fallback */
 .bus-marker-pulse {
   position: absolute;
   inset: -6px;
@@ -1691,80 +1747,82 @@ body {
   background: rgba(245, 158, 11, 0.3);
 }
 
-/* Upright 3D Billboarding Vehicle Body */
+/* Volumetric 3D Levitating Vehicle Body (Z = 30px) */
 .bus-3d-avatar {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 52px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
   transform-style: preserve-3d;
-  transition: transform 0.4s ease, filter 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
 }
 .gps-3d-stage.is-3d .bus-3d-avatar {
-  transform: rotateZ(calc(-1 * var(--gps-bearing))) rotateX(calc(-1 * var(--gps-pitch))) translateZ(28px);
-  filter: drop-shadow(0 16px 12px rgba(0, 0, 0, 0.75));
+  transform: rotateZ(calc(-1 * (var(--gps-bearing) + var(--gps-mouse-ry, 0deg)))) 
+             rotateX(calc(-1 * (var(--gps-pitch) + var(--gps-mouse-rx, 0deg)))) 
+             translateZ(30px);
+  filter: drop-shadow(0 18px 16px rgba(0, 0, 0, 0.85));
+  animation: busHoverVolumetric 3.5s ease-in-out infinite alternate;
 }
 
-.bus-marker-pin {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #0ea5e9 0%, #1e40af 100%);
-  border: 2px solid #ffffff;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+@keyframes busHoverVolumetric {
+  0% {
+    transform: rotateZ(calc(-1 * (var(--gps-bearing) + var(--gps-mouse-ry, 0deg)))) 
+               rotateX(calc(-1 * (var(--gps-pitch) + var(--gps-mouse-rx, 0deg)))) 
+               translateZ(26px);
+  }
+  100% {
+    transform: rotateZ(calc(-1 * (var(--gps-bearing) + var(--gps-mouse-ry, 0deg)))) 
+               rotateX(calc(-1 * (var(--gps-pitch) + var(--gps-mouse-rx, 0deg)))) 
+               translateZ(36px);
+  }
 }
-.bus-marker-pin.scheduled {
-  background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+
+.bus-isometric-svg {
+  width: 52px;
+  height: 46px;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+  transition: transform 0.25s ease;
 }
-.bus-marker-pin.arrived {
-  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-.bus-marker-wrap:hover .bus-marker-pin {
-  transform: scale(1.15);
-  border-color: #ffd700;
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
-}
-.bus-marker-pin svg {
-  width: 17px;
-  height: 17px;
+.bus-marker-wrap:hover .bus-isometric-svg {
+  transform: scale(1.18);
 }
 
 /* Floating 3D Telemetry Badge */
 .bus-3d-badge {
   position: absolute;
-  top: -20px;
+  top: -24px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateZ(14px);
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 10.5px;
+  font-weight: 800;
   color: #ffffff;
-  background: rgba(11, 15, 25, 0.92);
-  border: 1px solid rgba(6, 182, 212, 0.5);
-  padding: 1px 6px;
-  border-radius: 4px;
+  background: rgba(11, 15, 25, 0.94);
+  border: 1.5px solid rgba(6, 182, 212, 0.6);
+  padding: 2px 7px;
+  border-radius: 6px;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.8), 0 0 10px rgba(6, 182, 212, 0.35);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  z-index: 10;
+}
+.bus-3d-badge .badge-fleet {
+  color: #ffd700;
 }
 .bus-3d-badge .badge-speed {
   color: var(--cyan);
-  font-size: 9px;
+  font-size: 9.5px;
+  font-weight: 700;
 }
 .bus-3d-badge.scheduled {
-  border-color: rgba(245, 158, 11, 0.5);
+  border-color: rgba(245, 158, 11, 0.6);
 }
 .bus-3d-badge.scheduled .badge-speed {
   color: #fbbf24;
@@ -1773,40 +1831,42 @@ body {
 /* 3D WAYPOINT STATION BEACON */
 .station-beacon-wrap {
   position: relative;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   transform-style: preserve-3d;
   cursor: pointer;
 }
-.station-base-pulse {
+.station-ground-ring {
   position: absolute;
-  inset: -2px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: rgba(255, 215, 0, 0.3);
-  animation: busPulse 2.5s infinite;
+  border: 1.5px dashed rgba(255, 215, 0, 0.8);
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.25) 0%, transparent 70%);
+  animation: radarDiscSpin 10s linear infinite;
   pointer-events: none;
 }
 .station-beacon-core {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #ffd700;
   border: 2px solid #0b0f19;
-  box-shadow: 0 0 10px rgba(255, 215, 0, 0.9);
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.95);
   z-index: 2;
 }
 .station-beacon-pillar {
   position: absolute;
   bottom: 50%;
   left: 50%;
-  width: 1.5px;
-  height: 20px;
+  width: 2px;
+  height: 36px;
   transform: translateX(-50%);
   background: linear-gradient(180deg, #ffd700 0%, rgba(255, 215, 0, 0.1) 100%);
-  box-shadow: 0 0 6px rgba(255, 215, 0, 0.8);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.9);
   pointer-events: none;
   display: none;
 }
@@ -1815,20 +1875,23 @@ body {
 }
 .station-beacon-name {
   position: absolute;
-  top: -24px;
+  top: -38px;
   left: 50%;
-  transform: translateX(-50%) rotateZ(calc(-1 * var(--gps-bearing))) rotateX(calc(-1 * var(--gps-pitch)));
+  transform: translateX(-50%) 
+             rotateZ(calc(-1 * (var(--gps-bearing) + var(--gps-mouse-ry, 0deg)))) 
+             rotateX(calc(-1 * (var(--gps-pitch) + var(--gps-mouse-rx, 0deg)))) 
+             translateZ(36px);
   font-family: var(--font-body);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   color: #ffd700;
-  background: rgba(11, 15, 25, 0.92);
-  border: 1px solid rgba(255, 215, 0, 0.45);
-  padding: 1px 5px;
-  border-radius: 4px;
+  background: rgba(11, 15, 25, 0.94);
+  border: 1.5px solid rgba(255, 215, 0, 0.6);
+  padding: 2px 7px;
+  border-radius: 6px;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.8), 0 0 12px rgba(255, 215, 0, 0.4);
   display: none;
 }
 .gps-3d-stage.is-3d .station-beacon-name {
@@ -1838,6 +1901,15 @@ body {
 @keyframes radarDiscSpin {
   from { transform: translate(-50%, -50%) rotate(0deg); }
   to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Highway animation */
+@keyframes highwayFlow {
+  from { stroke-dashoffset: 40; }
+  to { stroke-dashoffset: 0; }
+}
+.highway-neon-track {
+  animation: highwayFlow 2s linear infinite;
 }
 
 /* Custom Popup */

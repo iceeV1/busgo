@@ -414,35 +414,66 @@ function createBusIcon(bus, tele, bearing) {
   const isEnroute = tele.status === "enroute";
   const statusCls = isEnroute ? "enroute" : tele.status === "scheduled" ? "scheduled" : "arrived";
   const pulseHtml = `<div class="bus-marker-pulse ${statusCls}"></div>`;
+  const roadShadow = `<div class="bus-road-shadow"></div>`;
   const groundDisc = `<div class="bus-ground-disc ${statusCls}"></div>`;
-  const headlight = isEnroute ? `<div class="bus-headlight-cone" style="transform: translate(-50%, -50%) rotate(${bearing}deg)"></div>` : "";
+  const headlights = isEnroute ? `<div class="bus-dual-headlights" style="transform: translate(-50%, -50%) rotate(${bearing}deg)"></div>` : "";
   const holoPillar = `<div class="bus-holo-pillar ${statusCls}"></div>`;
   const speedBadge = isEnroute ? `<span class="badge-speed">${tele.speed} กม./ชม.</span>` : "";
+
+  const flankColor = isEnroute ? "#0284c7" : "#d97706";
+  const frontColor = isEnroute ? "#0369a1" : "#b45309";
+  const roofColor = isEnroute ? "#38bdf8" : "#fbbf24";
+  const acBorder = isEnroute ? "#06b6d4" : "#f59e0b";
 
   return L.divIcon({
     className: "bus-div-icon",
     html: `
       <div class="bus-marker-wrap" data-bus-marker="${esc(bus.id)}">
+        ${roadShadow}
         ${groundDisc}
-        ${headlight}
+        ${headlights}
         ${pulseHtml}
         ${holoPillar}
         <div class="bus-3d-avatar">
           <div class="bus-3d-badge ${statusCls}">
-            <span>${esc(bus.id)}</span>
+            <span class="badge-fleet">${esc(bus.id)}</span>
             ${speedBadge}
           </div>
-          <div class="bus-marker-pin ${statusCls}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(${bearing}deg)">
-              <path d="M12 2L19 21L12 17L5 21L12 2Z"/>
-            </svg>
-          </div>
+          <svg viewBox="0 0 54 48" class="bus-isometric-svg" style="transform: rotate(${bearing}deg)">
+            <!-- Chassis shadow -->
+            <ellipse cx="27" cy="38" rx="19" ry="6.5" fill="rgba(0,0,0,0.5)" />
+            <!-- Lower chassis -->
+            <path d="M11 26 L27 34 L43 26 L43 20 L27 28 L11 20 Z" fill="#0f172a" stroke="#334155" stroke-width="0.8" />
+            <!-- Wheels -->
+            <ellipse cx="17" cy="31" rx="3.2" ry="1.8" fill="#090d16" stroke="#64748b" stroke-width="0.7"/>
+            <ellipse cx="37" cy="31" rx="3.2" ry="1.8" fill="#090d16" stroke="#64748b" stroke-width="0.7"/>
+            <!-- Side flank -->
+            <path d="M11 20 L27 28 L27 17 L11 9 Z" fill="${flankColor}" />
+            <!-- Tinted passenger windows -->
+            <path d="M13 18 L25 24 L25 19 L13 13 Z" fill="#090d16" />
+            <path d="M14 17 L18 19 L18 16 L14 14 Z" fill="#38bdf8" fill-opacity="0.85" />
+            <path d="M19 20 L24 22.5 L24 19.5 L19 17 Z" fill="#38bdf8" fill-opacity="0.85" />
+            <!-- Front cabin -->
+            <path d="M27 28 L43 20 L43 9 L27 17 Z" fill="${frontColor}" />
+            <!-- Panoramic glass windshield -->
+            <path d="M29 24 L41 18 L41 12 L29 18 Z" fill="#bae6fd" fill-opacity="0.85" />
+            <line x1="31" y1="22" x2="39" y2="14" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round" stroke-opacity="0.9"/>
+            <!-- Xenon LED Headlights -->
+            <circle cx="31" cy="25.5" r="1.8" fill="#fef08a" />
+            <circle cx="39.5" cy="21.5" r="1.8" fill="#fef08a" />
+            <line x1="33" y1="26.5" x2="38" y2="24" stroke="#ffd700" stroke-width="1.2" stroke-linecap="round"/>
+            <!-- 3D Roof -->
+            <path d="M11 9 L27 17 L43 9 L27 1 Z" fill="${roofColor}" stroke="#ffffff" stroke-width="0.8" stroke-opacity="0.75" />
+            <!-- Roof AC Pod -->
+            <path d="M23 9 L27 11 L31 9 L27 7 Z" fill="#0f172a" stroke="${acBorder}" stroke-width="0.7" />
+            <line x1="16" y1="6.5" x2="22" y2="9.5" stroke="rgba(255,255,255,0.6)" stroke-width="1"/>
+          </svg>
         </div>
       </div>
     `,
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    popupAnchor: [0, -28],
+    iconSize: [56, 56],
+    iconAnchor: [28, 28],
+    popupAnchor: [0, -32],
   });
 }
 
@@ -517,14 +548,30 @@ function initLiveGpsMap() {
   const isLight = document.documentElement.dataset.theme === "light";
   (isLight ? lightTileLayer : darkTileLayer).addTo(liveMap);
 
-  // Highway Route Polylines
+  // 3D Multi-Layer Highway Corridors
   Object.entries(ROUTE_STATIONS).forEach(([key, stList]) => {
     const latlngs = stList.map((st) => getStationCoord(st));
+    // Layer 1: Dark Highway Roadbed
+    L.polyline(latlngs, {
+      color: "#031525",
+      weight: 6,
+      opacity: 0.85,
+      lineCap: "round",
+    }).addTo(liveMap);
+    // Layer 2: Neon Cyan Smart Transit Track
     L.polyline(latlngs, {
       color: "#06b6d4",
-      weight: 2.2,
-      opacity: 0.35,
-      dashArray: "5, 8",
+      weight: 2.8,
+      opacity: 0.8,
+      dashArray: "6, 10",
+      className: "highway-neon-track",
+    }).addTo(liveMap);
+    // Layer 3: Glowing Center Energy Tracer
+    L.polyline(latlngs, {
+      color: "#f0f9ff",
+      weight: 1.2,
+      opacity: 0.9,
+      dashArray: "3, 16",
     }).addTo(liveMap);
   });
 
@@ -537,14 +584,14 @@ function initLiveGpsMap() {
       className: "station-div-icon",
       html: `
         <div class="station-beacon-wrap" title="${esc(name)}">
-          <div class="station-base-pulse"></div>
+          <div class="station-ground-ring"></div>
           <div class="station-beacon-core"></div>
           <div class="station-beacon-pillar"></div>
           <div class="station-beacon-name">${esc(name)}</div>
         </div>
       `,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
     });
     L.marker(coord, { icon: stationIcon })
       .bindTooltip(name, { permanent: false, direction: "top", className: "station-tooltip" })
@@ -776,6 +823,25 @@ function setupGpsControls() {
   if (orbitBtn) {
     orbitBtn.addEventListener("click", () => {
       toggleAutoOrbit();
+    });
+  }
+
+  // Interactive 3D Cursor Parallax
+  const stage = $("gps3dStage");
+  if (stage) {
+    stage.addEventListener("mousemove", (e) => {
+      if (!is3dMode || isAutoOrbiting) return;
+      const rect = stage.getBoundingClientRect();
+      const normX = (e.clientX - rect.left) / rect.width - 0.5;
+      const normY = (e.clientY - rect.top) / rect.height - 0.5;
+      const rx = normY * -8;
+      const ry = normX * 10;
+      document.documentElement.style.setProperty("--gps-mouse-rx", `${rx.toFixed(1)}deg`);
+      document.documentElement.style.setProperty("--gps-mouse-ry", `${ry.toFixed(1)}deg`);
+    });
+    stage.addEventListener("mouseleave", () => {
+      document.documentElement.style.setProperty("--gps-mouse-rx", "0deg");
+      document.documentElement.style.setProperty("--gps-mouse-ry", "0deg");
     });
   }
 }

@@ -169,6 +169,26 @@
       - มาตรวัด 3D GYRO แสดงค่าองศาปัจจุบันสด
     - **Bump Semantic Versioning เป็น 2.1.0** อัปเดต Cache-busting query strings `?v=2.1.0` และผ่านการทดสอบไวยากรณ์ครบถ้วน
 
+## งานที่ทำแล้ว (v2.1.1 — Volumetric Isometric 3D Vehicles & Layered Parallax Engine)
+
+49. **เพิ่มมิติความลึกสมจริง (Depth & Dimensionality Upgrade)**:
+    - **การถ่ายทอดมิติ 3D สู่เลเยอร์แผนที่ (Leaflet 3D Pipeline)**: ปรับ `transform-style: preserve-3d !important;` ให้ครอบคลุมทุกเลเยอร์ของ Leaflet (.leaflet-pane, .leaflet-marker-pane, .leaflet-zoom-animated) แก้ปัญหาองค์ประกอบ 3D ถูกบีบแบนลงบนระนาบ 2D
+    - **โมเดลรถ 3D ไอโซเมตริกแบบมีปริมาตร (Volumetric Isometric 3D Coach)**:
+      - มีระนาบหลังคาเอียง 3D พร้อมกล่องแอร์และแผงโซลาร์
+      - กระจกบังลมหน้าสโลปพร้อมเส้นแสงสะท้อนเงากระจก และไฟหน้า LED คู่
+      - แถบหน้าต่างผู้โดยสารด้านข้างกระจกเข้มพร้อมเงาตัวถังและล้อรถ
+      - เงาทรงรีทอดลงบนผิวถนน (Road Surface Shadow) ใต้ท้องรถ เพิ่มมิติลอยตัวอย่างชัดเจน
+      - ลำแสงไฟหน้ารถคู่สาดส่องลงบนพื้นทางหลวง (Dual Forward Headlights)
+      - แอนิเมชันลอยตัวขึ้น-ลงในแกน Z (`translateZ(26px)` ถึง `translateZ(36px)`)
+    - **ระบบเลเยอร์ทางหลวง 3 มิติ (3D Multi-Layer Highway Corridors)**:
+      - ชั้นคันทางแอสฟัลต์สีเข้ม (ความหนา 6px)
+      - ชั้นเส้นทางไฟนีออนฟ้าไซอันพร้อมแอนิเมชันการไหลของพลังงาน (highwayFlow)
+      - ชั้นเส้นนำทางอนุภาคพลังงานสีขาวตรงกลาง
+    - **เสาสัญญาณสถานี 3D พร้อมวงแหวนเรดาร์และป้ายเมืองลอยตัว (Floating Waypoint Beacons)**
+    - **หมอกระยะขอบฟ้าแบบ Tilt-Shift (Tilt-Shift Horizon Fog)**: จำลองเอฟเฟกต์ภาพโมเดลจิ๋วแบบ Depth-of-Field
+    - **พารัลแลกซ์ตอบสนองการเคลื่อนไหวของเมาส์ (Interactive Mouse Gyro Parallax)**: กล้องและมิติความลึกจะขยับตามทิศทางเคอร์เซอร์ของผู้ใช้แบบไดนามิก
+    - **Bump Semantic Versioning เป็น 2.1.1** อัปเดต Cache-busting query strings `?v=2.1.1` เรียบร้อย
+
 
 
 ## การแพ็ก ZIP ส่งงาน
